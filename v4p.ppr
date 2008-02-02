@@ -1,0 +1,68 @@
+[Config]
+Relative path=1
+Compilator.FileName=
+Compilator.PSPar=
+Compilator.Log=
+Compilator.Run=
+Compilator.DefaultDir=
+Compilator.SaveAll=0
+Compilator.Capture=0
+Compilator.ParsLog=
+Compilator.HideOutput=0
+Prog1=
+Prog2=
+Prog3=
+Prog4=
+Prog5=
+DefaultDir=
+DefaultCPIndex=1
+LogtoEnd=1
+DontOpen=0
+FileFormat=0
+DocumentRoot=
+HTServer=
+[Project tree]
+v4p
+	+Répertoire
+		v4p.c
+		lowmath.h
+		lowmath.c
+		v4pi.h
+		v4pi.c
+		v4p.h
+[Open project files]
+0=v4p.h
+1=..\..\..\..\MESDOC~1\V4P\v4p2.pas
+2=v4p.c
+3=v4pi.c
+4=v4pi.h
+5=lowmath.c
+6=lowmath.h
+7=..\..\..\..\Mes documents\v4p\v4p2_i1.pas
+[Selected Project Files]
+Main=
+Selected=v4pi.c
+[v4p.h]
+TopLine=53
+Caret=1,1
+[..\..\..\..\MESDOC~1\V4P\v4p2.pas]
+TopLine=975
+Caret=23,17
+[v4p.c]
+TopLine=776
+Caret=24,217
+[v4pi.c]
+TopLine=41
+Caret=26,63
+[v4pi.h]
+TopLine=22
+Caret=24,34
+[lowmath.c]
+TopLine=26
+Caret=11,41
+[lowmath.h]
+TopLine=1
+Caret=1,1
+[..\..\..\..\Mes documents\v4p\v4p2_i1.pas]
+TopLine=183
+Caret=1,1
