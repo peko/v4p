@@ -14,6 +14,23 @@ V4P only asks you to provide an horizontal line drawing function (a memset()-lik
 
 Beside rendering vectors scene, V4P will help you find collides.
 
+=How to use it=
+
+V4P is a set of 2 C files and their parented header files.
+
+They can be compiled and linked into some library or directly added to your own project.
+
+Warning: provided makefiles deal with Palm OS 4 gcc based compilation.
+
+Two Palmphi projects are provided as well. Palmphi is a simple IDE for Windows to simplify
+the creation of applications for Palm devices. See: http://www.digital-kingdoms.net/palmphi/
+
+* palmphi-toto : A V4P based top-view car game. A work in progress.
+
+* palmphi-totoe : A V4P based picture editor. Draw layered polygons based picture!
+
+To compile these 2 projects, put the V4P distribution in the directory /usr/src/v4p/
+of your cygwin files tree. Compile V4P sources before the application ones.
 
 =Design Introduction=
 
@@ -72,6 +89,6 @@ only 16 layers for now. Using a balanced binary tree of span parents could make 
   * an integrated solution need an in-depth rewrite
   * an other solution is to call V4P repeatidly on "dirty rectangles"
 
-==Otherelse==
+=Otherelse=
 
 Contact: sylvain.garden@gmail.com
