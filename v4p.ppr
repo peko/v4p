@@ -33,24 +33,20 @@ v4p
 [Open project files]
 0=v4p.h
 1=..\..\..\..\MESDOC~1\V4P\v4p2.pas
-2=v4p.c
-3=v4pi.c
-4=v4pi.h
-5=lowmath.c
-6=lowmath.h
-7=..\..\..\..\Mes documents\v4p\v4p2_i1.pas
+2=v4pi.c
+3=v4pi.h
+4=lowmath.c
+5=lowmath.h
+6=..\..\..\..\Mes documents\v4p\v4p2_i1.pas
 [Selected Project Files]
 Main=
-Selected=v4pi.c
+Selected=v4p.h
 [v4p.h]
 TopLine=53
-Caret=1,1
+Caret=21,58
 [..\..\..\..\MESDOC~1\V4P\v4p2.pas]
-TopLine=975
+TopLine=17
 Caret=23,17
-[v4p.c]
-TopLine=776
-Caret=24,217
 [v4pi.c]
 TopLine=41
 Caret=26,63
