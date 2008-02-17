@@ -10,7 +10,7 @@ Props data
 >>TOTOE:100
     AppID=TOTE
     Version=1.0
-    ExtraObjFiles=/usr/src/v4p/v4p.o,/usr/src/v4p/v4pi.o,/usr/src/v4p/lowmath.o
+    ExtraObjFiles=/usr/src/v4p/libv4p.a
     ExtraIncludes="v4pi.h"
     ExtraResources=
     ExtraLibraries=
