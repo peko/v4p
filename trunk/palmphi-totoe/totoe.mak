@@ -17,8 +17,8 @@ Totoe.o:	Totoe.c Totoe.h
 Totoe.prc:	Totoe Totoe.ro
 	build-prc -n 'Totoe' -c 'TOTE' -o Totoe.prc Totoe.ro Totoe
 
-Totoe:	Totoe.o  /usr/src/v4p/v4p.o /usr/src/v4p/v4pi.o /usr/src/v4p/lowmath.o
-	m68k-palmos-gcc -o Totoe Totoe.o  /usr/src/v4p/v4p.o /usr/src/v4p/v4pi.o /usr/src/v4p/lowmath.o  -L/m68k-palmos/lib
+Totoe:	Totoe.o  /usr/src/v4p/libv4p.a
+	m68k-palmos-gcc -o Totoe Totoe.o  /usr/src/v4p/libv4p.a  -L/m68k-palmos/lib
 
 clean:
 	rm -f Totoe.ro Totoe Totoe.o

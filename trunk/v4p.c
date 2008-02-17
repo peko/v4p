@@ -62,6 +62,7 @@ typedef struct poly_s {
  PolyP suivant ; // liens entre subs
  PolyP enBas ; // liens sur y
  Coord minx,maxx,miny,maxy; // rectangle minimal autour
+ Coord minyv, maxyv ;
  BAP BA1 ; // tête liste BA actif
 } Poly ;
 
@@ -154,8 +155,7 @@ PolyP v4pPolyCree(PolyProps t, Couleur col, ICouche z) {
   p->sub1 = NULL;
   p->suivant = NULL;
   p->enBas = NULL;
-  p->minx = 0; p->maxx = 0;
-  p->miny = 1; p->maxy = 0; // miny>maxy=> calcul bornes a faire
+  p->miny = ~0; // miny = bcp trop => calcul bornes a faire
   return p;
 }
 
@@ -242,6 +242,15 @@ SommetP v4pPolyAjouteSommet(PolyP p, Coord x, Coord y) {
    }
    s->x = x;
    s->y = y;
+   if (!p->sommet1) {
+      p->minx = p->maxx = x ;
+      p->miny = p->maxy = y ;
+   } else {
+      if (x < p->minx) p->minx = x ;
+      else if (x > p->maxx) p->maxx = x ;
+      if (y < p->miny) p->miny = y ;
+      else if (y > p->maxy) p->maxy = y ;
+   }
    s->suivant = p->sommet1;
    p->sommet1 = s;
    // p modif
@@ -270,6 +279,17 @@ Couleur v4pPolyDonneCouleur(PolyP p) {
 
 // change les coordonnées d'un sommet d'un poly
 SommetP v4pPolyBougeSommet(PolyP p, SommetP s, Coord x, Coord y) {
+   if (p->miny == ~0)
+      {}
+   else if (s->x == p->minx || s->y == p->miny
+      || s->x == p->maxx || s->y == p->maxy) {
+      p->miny = ~0 ; // calcul a refaire
+   } else {
+      if (x < p->minx) p->minx = x ;
+      else if (x > p->maxx) p->maxx = x ;
+      if (y < p->miny) p->miny = y ;
+      else if (y > p->maxy) p->maxy = y ;
+   }
    s->x = x;
    s->y = y;
    // p modif
@@ -293,6 +313,11 @@ PolyP v4pPolySuprSommet(PolyP p, SommetP s) {
      pps->suivant = ps->suivant;
    }
 
+   if (p->miny != ~0
+       && (s->x == p->minx || s->y == p->miny
+           || s->x == p->maxx || s->y == p->maxy)) {
+      p->miny = ~0 ; // calcul a refaire
+   }
    s->suivant = v4p.trouTasSommet;
    v4p.trouTasSommet = s;
 
@@ -460,7 +485,7 @@ PolyP v4pPolySuprBAs(PolyP p) {
    return p;
 }
 
-// fonction pour quick-sort
+// fonction pour merge-sort
 BAP v4pFusionneListeBAy(BAP liste1, BAP liste2) {
    BAP liste = liste1, p = NULL;
    while (liste1 && liste2) {
@@ -487,18 +512,25 @@ BAP v4pFusionneListeBAy(BAP liste1, BAP liste2) {
    return liste;
 }
 
-// trie par quick-sort d'une liste de BA chainés par 'enBas' dans l'ordre de 'y0'
+// trie par merge-sort d'une liste de BA chainés par 'enBas' dans l'ordre de 'y0'
 BAP v4pTriBAy(BAP liste) {
-   BAP sl1 = NULL, sl2 = NULL;
+   BAP sl1, sl2, bad=NULL ;
+   Coord y0p ;
    if (!liste) return NULL ;
 
-   sl1 = liste;
-   sl2 = sl1;
-   if (sl2) sl2 = sl2->enBas;
+   sl1 = sl2 = liste;
+   if (sl2) { y0p = sl2->y0 ; sl2 = sl2->enBas; }
    while (sl2 && sl2->enBas) {
-      sl2 = sl2->enBas->enBas;
+      if (sl2->y0 < y0p) bad = sl2 ;
+      y0p = sl2->y0 ;
+      sl2 = sl2->enBas ;
+      if (sl2->y0 < y0p) bad = sl2 ;
+      y0p = sl2->y0 ;
+      sl2 = sl2->enBas ;
       sl1 = sl1->enBas;
    }
+   if (sl2 && sl2->y0 < y0p) bad = sl2 ;
+   if (!bad) return liste ;
    sl2 = sl1->enBas;
    if (sl2) {
       sl1->enBas = NULL;
@@ -520,8 +552,7 @@ PolyP v4pRecAjusteClone(Boolean estSub, PolyP c, PolyP p, Coord dx, Coord dy, IC
       redresse(x, y, &x2, &y2);
       x2+= dx;
       y2+= dy;
-      sc->x = x2;
-      sc->y = y2;
+      v4pPolyBougeSommet(c, sc, x2, y2) ;
       sp = sp->suivant;
       sc = sc->suivant;
    }
@@ -579,57 +610,52 @@ PolyP v4pListeAjouteClone(PolyP *liste, PolyP p) {
 
 // calcule le rectangle minimal entourant p
 PolyP v4pPolyCalcBornes(PolyP p) {
-   SommetP s;
-   Coord m_inx, m_axx, m_iny, m_axy;
-
-   // if p pas modif return;
-
-   s = p->sommet1;
-   if (!s) {
-      p->minx = 1;
-      p->miny = 1;
-      p->maxx = 0;
-      p->maxy = 0;
-      return p;
-   }
-   m_inx = s->x;
-   m_iny = s->y;
-   m_axx = m_inx;
-   m_axy = m_iny;
-   for (s = s->suivant; s; s = s->suivant) {
-      if (s->x < m_inx) m_inx = s->x;
-      else if (s->x > m_axx) m_axx = s->x;
-
-      if (s->y < m_iny) m_iny = s->y;
-      else if (s->y > m_axy) m_axy = s->y;
-   }
-
-   p->minx = m_inx;
-   p->miny = m_iny;
-   p->maxx = m_axx;
-   p->maxy = m_axy;
-   if (!(p->props & relatif)) {
-      p->minx -= v4p.xvu0;
-      p->miny -= v4p.yvu0;
-      p->maxx -= v4p.xvu0;
-      p->maxy -= v4p.yvu0;
-      if (v4p.echellage) {
-         p->minx = p->minx * v4p.divxvu + (p->minx * v4p.modxvu) / v4p.dxvu;
-         p->maxx = p->maxx * v4p.divxvu + (p->maxx * v4p.modxvu) / v4p.dxvu;
-         p->miny = p->miny * v4p.divyvu + (p->miny * v4p.modyvu) / v4p.dyvu;
-         p->maxy = p->maxy * v4p.divyvu + (p->maxy * v4p.modyvu) / v4p.dyvu;
+   SommetP s = p->sommet1;
+   if (!s) { // pas de sommet
+      p->miny = ~0;
+   } else {
+      Coord minx, maxx, miny, maxy;
+      maxx = minx = s->x;
+      maxy = miny = s->y;
+      for (s = s->suivant; s; s = s->suivant) {
+         if (s->x < minx) minx = s->x;
+         else if (s->x > maxx) maxx = s->x;
+         if (s->y < miny) miny = s->y;
+         else if (s->y > maxy) maxy = s->y;
       }
+      p->minx = minx;
+      p->miny = miny;
+      p->maxx = maxx;
+      p->maxy = maxy;
    }
    return p;
 }
 
 // renvoie faux si le polygone est complètement en dehors de la vue (vrai sinon)
 Boolean v4pEstVisible(PolyP p) {
-  return (p->sommet1
-     && p->maxx>=0
-     && p->maxy>=0
-     && p->minx<largeurLigne
-     && p->miny<nbLignes);
+   if (!p->sommet1)
+      return false ;
+   if (p->miny == ~0) // bornes pas a jour
+      v4pPolyCalcBornes(p) ;
+
+   { Coord minx = p->minx, maxx = p->maxx, miny = p->miny, maxy = p->maxy;
+
+   if (!(p->props & relatif)) {
+      minx -= v4p.xvu0;
+      miny -= v4p.yvu0;
+      maxx -= v4p.xvu0;
+      maxy -= v4p.yvu0;
+      if (v4p.echellage) {
+         minx = minx * v4p.divxvu + (minx * v4p.modxvu) / v4p.dxvu;
+         maxx = maxx * v4p.divxvu + (maxx * v4p.modxvu) / v4p.dxvu;
+         miny = miny * v4p.divyvu + (miny * v4p.modyvu) / v4p.dyvu;
+         maxy = maxy * v4p.divyvu + (maxy * v4p.modyvu) / v4p.dyvu;
+      }
+   }
+   p->minyv = miny ;
+   p->maxyv = maxy ;
+   return (maxx >= 0 && maxy >= 0 && minx < largeurLigne && miny < nbLignes) ;
+   }
 }
 
 // genere les BA associés à un poly et les ajoute à v4p.listeBAy
@@ -735,7 +761,7 @@ PolyP v4pFusionneListePoly(PolyP liste1, PolyP liste2) {
    liste = liste1 ;
    p = NULL ;
    while (liste1 && liste2) {
-      if (liste1->miny < liste2->miny)
+      if (liste1->minyv < liste2->minyv)
          p = liste1 ;
       else {
          if (p)
@@ -756,18 +782,25 @@ PolyP v4pFusionneListePoly(PolyP liste1, PolyP liste2) {
    return liste ;
 }
 
-// trie par quick-sort une liste de poly chainés par 'enBas' dans l'ordre de 'miny'
+// trie par merge-sort une liste de poly chainés par 'enBas' dans l'ordre de 'miny'
 PolyP v4pTriPoly(PolyP liste) {
-   PolyP l1, l2 ;
+   PolyP l1, l2, bad=NULL ;
+   Coord minyp ;
    if (!liste) return NULL ;
 
-   l1 = liste ;
-   l2 = l1 ;
-   if (l2) l2 = l2->enBas ;
+   l1 = l2 = liste ;
+   if (l2) { minyp = l2->minyv ; l2 = l2->enBas ; }
    while (l2 && l2->enBas) {
-      l2 = l2->enBas->enBas ;
+      if (l2->minyv < minyp) bad = l2 ;
+      minyp = l2->minyv ;
+      l2 = l2->enBas ;
+      if (l2->minyv < minyp) bad = l2 ;
+      minyp = l2->minyv ;
+      l2 = l2->enBas ;
       l1 = l1->enBas ;
    }
+   if (l2 && l2->minyv < minyp) bad = l2 ;
+   if (!bad) return liste ;
    l2 = l1->enBas ;
    if (l2) {
       l1->enBas = NULL ;
@@ -782,9 +815,10 @@ void v4pChargeListeAOuvrir(PolyP l) {
    for (p = l ; p ; p = p->suivant) {
       if (p->props & inactif) continue ;
 
-      v4pPolyCalcBornes(p) ;
-      if (v4pEstVisible(p) && p->sub1)
-          v4pChargeListeAOuvrir(p->sub1) ;
+      if (!v4pEstVisible(p)) continue ;
+
+      if (p->sub1) v4pChargeListeAOuvrir(p->sub1) ;
+
       p->enBas = v4p.listeAOuvrir ;
       v4p.listeAOuvrir = p ;
    }
@@ -820,17 +854,24 @@ BAP v4pFusionneListeBA(BAP liste1, BAP liste2) {
    return liste ;
 }
 
-// trie par quick-sort d'une liste de BA doublement-chainés par 'aDroite' et 'aGauche' dans l'ordre de 'x'
+// trie par merge-sort une liste de BA doublement-chainés par 'aDroite' et 'aGauche' dans l'ordre de 'x'
 BAP v4pTriBA(BAP liste) {
-   BAP b, n, sl1, sl2 ;
+   BAP b, n, sl1, sl2, bad=NULL ;
+   Coord xp ;
    if (!liste) return NULL ;
-   sl1 = liste ;
-   sl2 = sl1 ;
-   if (sl2) sl2 = sl2->aDroite ;
+   sl1 = sl2 = liste ;
+   if (sl2) { xp = sl2->x ; sl2 = sl2->aDroite ; }
    while (sl2 && sl2->aDroite) {
-      sl2 = sl2->aDroite->aDroite ;
+      if (sl2->x < xp) bad = sl2 ;
+      xp = sl2->x ;
+      sl2 = sl2->aDroite ;
+      if (sl2->x < xp) bad = sl2 ;
+      xp = sl2->x ;
+      sl2 = sl2->aDroite ;
       sl1 = sl1->aDroite ;
    }
+   if (sl2 && sl2->x < xp) bad = sl2 ;
+   if (!bad) return liste ;
    sl2 = sl1->aDroite ;
    if (sl2) {
       sl1->aDroite = NULL ;
@@ -893,20 +934,20 @@ void v4pVueEnAbsolu(Coord x, Coord y, Coord *xa, Coord *ya) {
    *ya = v4p.yvu0 + y * v4p.divyvub + y * v4p.modyvub / nbLignes ;
 }
 
-// ouvre tous nouveaux polys nouvellement intersectés par la scan-line
+// ouvre tous les polys nouvellement intersectés par la scan-line
 PolyP v4pOuvrePolys(int y) {
    PolyP p, s, pr, ppr ;
    Boolean nouv = false ;
 
    for (p = v4p.listeAOuvrir ; p && p->miny <= y ; p = s) {
       s = p->enBas ;
-      if (p->maxy < y) continue ;
+      if (p->maxyv < y) continue ;
 
       v4pPolyCompileBA(p) ;
       nouv = true ;
       pr = v4p.listeAFermer ;
       ppr = NULL ;
-      while (pr && pr->maxy < p->maxy) {
+      while (pr && pr->maxyv < p->maxyv) {
          ppr = pr ;
          pr = pr->enBas ;
       }
@@ -974,7 +1015,7 @@ Boolean v4pAffiche() {
    for (y = 0 ; y < nbLignes ; y++) {
 
       // bcl ferme poly
-      while (v4p.listeAFermer && y > v4p.listeAFermer->maxy) {
+      while (v4p.listeAFermer && y > v4p.listeAFermer->maxyv) {
          v4pPolySuprBAs(v4p.listeAFermer) ;
          v4p.listeAFermer = v4p.listeAFermer->enBas ;
       }
