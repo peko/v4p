@@ -1,10 +1,12 @@
 /* ========================================================================== */
 /*                                                                            */
-/*   Experimental inline version of a Divide & Conquer type sort algorihm    */
+/*   Experimental inline version of a Divide & Conquer type sort algorihm     */
 /*   (c) 2008 Garden Sylvain sylvain.garden@gmail.com                         */
 /*                                                                            */
 /*   Description                                                              */
-/*                                                                            */
+/*   I aim a O(n) complexity when the to-be-ordered list is the               */
+/*   concatenation of y (y << n) median-sized sub-lists.                      */
+/*   There are a lot of applicative case.                                     */
 /* ========================================================================== */
 #include <stdio.h>
 #include <stdlib.h>
