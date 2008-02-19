@@ -21,24 +21,27 @@ typedef struct sList { void *data ; struct sList *next ; } *List ;
 
 
 // merge function which keeps sort direction thanks to mutable links
-List ListMerge(List l1, List l2) {
+List ListMerge(List previous, List after) {
    struct sList fake_first = {NULL, NULL} ;
    List p = &fake_first ;
-   while (l1 && l2)
+   List tmp ;
+   ListSetNext(p, previous) ;
+   while (previous && after)
      {
-       if (ListCompare(l1, l2))
+       if (!ListCompare(after, previous))
          {
-           p = ListSetNext(p, l2) ;
-           l2 = ListNext(l2) ;
+           // correct broken link
+           ListSetNext(p, after) ;
+           // swap after/previous lists // xor swap?
+           tmp = previous ;
+           previous = after ;
+           after = tmp ;
          }
-       else
-         {
-           p = ListSetNext(p, l1) ;
-           l1 = ListNext(l1) ;
-         }
+       p = previous ;
+       previous = ListNext(previous) ;
      }
 
-   ListSetNext(p, (l2 ? l2 : l1)) ;
+   ListSetNext(p, (after ? after : previous)) ;
 
    return ListNext(fake_first) ;
 }
@@ -47,12 +50,12 @@ List ListMerge(List l1, List l2) {
 List ListGetNextRise(List l) {
    if (!l) return NULL ;
 
-   // sort break search loop
+   // sorting break search loop
    for (last = l, l = ListNext(l) ;
         l && ListCompare(l, last) ;
         last = l, l = ListNext(l)) ;
 
-   //  cut l at sort break
+   // will cut l at sort break
    if (last) ListSetNext(last, NULL) ;
 
    return l ;
@@ -81,7 +84,7 @@ List down(List list, int level, List *remaining) {
 
 // THE algorithm *WOOT!*
 // repeat until exhaustion of the unordered list :
-//  merge the already orderered list with the same-depth list part
+//  merge the already orderered list with the same-depth list
 //  read and merge-sorted from the head of the unorderer list
 
 List inlineDivideAndConquerSort(List list) {
