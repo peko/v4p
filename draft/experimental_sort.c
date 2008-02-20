@@ -46,6 +46,8 @@ List ListMerge(List previous, List after) {
    return ListNext(fake_first) ;
 }
 
+// THE algorithm *WOOT!*
+
 // cut list at end of the first rise, and returns the next rise
 List ListGetNextRise(List l) {
    if (!l) return NULL ;
@@ -61,8 +63,8 @@ List ListGetNextRise(List l) {
    return l ;
 }
 
-// one direction :
-// merge an implicite structure of pairs of n=2^level consecutive rises
+// look for and merge a structure of pairs of rises in a list
+// n=2^level consecutive rises from the head of the list are merged
 List down(List list, int level, List *remaining) {
   List sub_remaining, l1, l2 ;
   if (!list)
@@ -82,10 +84,9 @@ List down(List list, int level, List *remaining) {
   return ListMerge(l1, l2) ;
 }
 
-// THE algorithm *WOOT!*
 // repeat until exhaustion of the unordered list :
-//  merge the already orderered list with the same-depth list
-//  read and merge-sorted from the head of the unorderer list
+//  merge-sort a sub-list which weights as much as the already ordered list
+//  then merge both as a weight+1 ordered list
 
 List inlineDivideAndConquerSort(List list) {
   List done = NULL, remaining, ordered ;
