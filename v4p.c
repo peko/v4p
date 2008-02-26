@@ -26,10 +26,7 @@
 ** sub : sous-polygone couplé au poly père (rotation,déplacement,optimisation)
 ** z = profondeur = numéro de couche d'un polygone
 ** tasXXX : résa mémoire pour XXX
-** maxXXX : nb max de XXX
-** hautTasXXX : limite supérieure des emplacements utilisés dans un tas d'XXX
-** trouTasXXX : tete d'une liste chainée des emplacements recyclables dans un tas d'XXX
-** XXXP : pointeur d'un XXX dans tasXXX
+** XXXP : pointeur d'un XXX
 ** IXXX : Indice d'un XXX dans une table
 ** XXXRappel : fonction définie à l'extérieur de V4P (CallBack)
 ** poly ouvert : poly couramment intersecté par la ligne de balayage : min(y(sommets)) < y < max(y(sommets))
@@ -60,7 +57,6 @@ typedef struct poly_s {
  ICollision i ; // couche de collision (i!=z)
  PolyP sub1 ; // liste subs
  PolyP suivant ; // liens entre subs
- PolyP enBas ; // liens sur y
  Coord minx,maxx,miny,maxy; // rectangle minimal autour
  Coord minyv, maxyv ;
  BAP BA1 ; // tête liste BA actif
@@ -71,7 +67,6 @@ typedef struct ba_s {
  Coord x0, y0, x1, y1 ; // vecteur-bord
  PolyP p ; // polygone propriétaire
  Coord x, o1, o2, s, h, r1, r2 ; // bresenham: offset, sommes, nbLignes, restes
- BAP suivant, enBas, aDroite, aGauche ; // liens: sans tri, tri en y, tri entre ouverts en x/scanline
 } BA ;
 
 // contexte V4P
@@ -80,73 +75,62 @@ typedef struct v4pContext_s {
  Coord pas ; // pas
  int debug1 ;
  Coord   xvu0,yvu0,xvu1,yvu1 ; // vue affichée, coordonées dans le repère de la scène
- // données privées
- Sommet  tasSommet[MAX_SOMMET] ;
- Poly    tasPoly[MAX_POLY] ;
- BA      tasBA[MAX_BA] ;
- int     hautTasSommet, hautTasPoly, hautTasBA ; // limite supérieure valide des tas
- SommetP trouTasSommet ; // emplacements recyclables pour sommet
- PolyP   trouTasPoly ; // emplacements recyclables pour poly
- BAP     trouTasBA ; // emplacements recyclables pour BA
- PolyP listeAOuvrir, listeAFermer ; // liste des poly non ouverts, et des polys ouverts non fermés
- BAP listeBAx, listeBAy ;
+ QuickHeap tasSommet, tasPoly, tasBA ;
+ List    listePolyOuverts, listePolyOuvrables ; // listes des poly ouverts courants et futures
+ List    listeBAx, listeBAy ; //liste des BA courants en x et futures en y0
  Coord   dxvu,dyvu, // infos sur la vue
   divxvu,modxvu,divxvub,modxvub,
   divyvu,modyvu,divyvub,modyvub;
  Boolean echellage; // faut il appliquer un ratio sur les tailles de polygones?
-} V4pContext ;
+} V4pContextS, *V4pContext ;
 
-V4pContext v4p ; // Contexte V4P courant.
+V4pContext v4p = NULL ; // Contexte V4P courant.
 
 // Définit la vue
 int v4pChangeVue(Coord x0, Coord y0, Coord x1, Coord y1) {
-  v4p.xvu0=x0;
-  v4p.yvu0=y0;
-  v4p.xvu1=x1;
-  v4p.yvu1=y1;
-  v4p.dxvu=x1-x0;
-  v4p.dyvu=y1-y0;
-  if (!v4p.dxvu || !v4p.dyvu) return failure; // can't divide by 0
-  v4p.divxvu = largeurLigne / v4p.dxvu;
-  v4p.modxvu = largeurLigne % v4p.dxvu;
-  v4p.divxvub = v4p.dxvu / largeurLigne;
-  v4p.modxvub = v4p.dxvu % largeurLigne;
-  v4p.divyvu = nbLignes / v4p.dyvu;
-  v4p.modyvu = nbLignes % v4p.dyvu;
-  v4p.divyvub = v4p.dyvu / nbLignes;
-  v4p.modyvub = v4p.dyvu % nbLignes;
-  v4p.echellage = !(v4p.divxvu==1 && v4p.divyvu==1 && v4p.modxvu==0 && v4p.modyvu==0);
+  v4p->xvu0=x0;
+  v4p->yvu0=y0;
+  v4p->xvu1=x1;
+  v4p->yvu1=y1;
+  v4p->dxvu=x1-x0;
+  v4p->dyvu=y1-y0;
+  if (!v4p->dxvu || !v4p->dyvu) return failure; // can't divide by 0
+  v4p->divxvu = largeurLigne / v4p->dxvu;
+  v4p->modxvu = largeurLigne % v4p->dxvu;
+  v4p->divxvub = v4p->dxvu / largeurLigne;
+  v4p->modxvub = v4p->dxvu % largeurLigne;
+  v4p->divyvu = nbLignes / v4p->dyvu;
+  v4p->modyvu = nbLignes % v4p->dyvu;
+  v4p->divyvub = v4p->dyvu / nbLignes;
+  v4p->modyvub = v4p->dyvu % nbLignes;
+  v4p->echellage = !(v4p->divxvu==1 && v4p->divyvu==1 && v4p->modxvu==0 && v4p->modyvu==0);
   return success;
 }
 
-// Initialise le contexte V4P
-int v4pInit() {
-  v4p.scene = NULL;
-  v4p.pas = 8;
-  //hauts de Piles
-  v4p.hautTasSommet = 0;
-  v4p.hautTasPoly = 0;
-  v4p.hautTasBA = 0;
-  //Tetes de liste de trou
-  v4p.trouTasSommet = NULL;
-  v4p.trouTasPoly = NULL;
-  v4p.trouTasBA = NULL;
 
-  return v4pChangeVue(0,0, largeurLigne, nbLignes);
+// Initialise le contexte V4P
+V4pContext v4pContextCree() {
+  v4p = (V4pContext)malloc(sizeof(V4pContextS)) ;
+  v4p->scene = NULL;
+  v4p->pas = 8;
+  v4p->tasSommet = QuickHeapNewFor(Sommet) ;
+  v4p->tasPoly = QuickHeapNewFor(Poly) ;
+  v4p->tasBA = QuickHeapNewFor(BA) ;
+  v4pChangeVue(0,0, largeurLigne, nbLignes);
+  return v4p ;
+}
+int v4pInit() {
+  v4pContextCree() ;
+  return succes ;
+}
+
+int v4pContexteChange(V4pContext p) {
+  v4p = p ;
 }
 
 // crée un poly
 PolyP v4pPolyCree(PolyProps t, Couleur col, ICouche z) {
-  PolyP p = NULL ;
-
-  if (v4p.hautTasPoly < MAX_POLY) {
-     p = &(v4p.tasPoly[v4p.hautTasPoly++]);
-  } else {
-     p = v4p.trouTasPoly;
-     if (!p) return (v4pErreurRappel("tasPoly plein"), NULL) ;
-     v4p.trouTasPoly = p->suivant;
-  }
-
+  PolyP p = QuickHeapAlloc(v4p->tasPoly) ;
   p->props = t;
   p->z = z;
   p->i = -1;
@@ -154,7 +138,6 @@ PolyP v4pPolyCree(PolyProps t, Couleur col, ICouche z) {
   p->sommet1 = NULL;
   p->sub1 = NULL;
   p->suivant = NULL;
-  p->enBas = NULL;
   p->miny = ~0; // miny = bcp trop => calcul bornes a faire
   return p;
 }
@@ -163,8 +146,7 @@ PolyP v4pPolyCree(PolyProps t, Couleur col, ICouche z) {
 int v4pPolySupr(PolyP p) {
  while (p->sommet1) v4pPolySuprSommet(p,p->sommet1);
  while (p->sub1) v4pPolySuprSubPoly(p,p->sub1);
- p->suivant=v4p.trouTasPoly;
- v4p.trouTasPoly=p;
+ QuickHeapFree(v4p->tasPoly,p);
  return success ;
 }
 
@@ -232,14 +214,7 @@ PolyProps v4pPolyOteProp(PolyP p, PolyProps i) {
 
 // ajoute un sommet à un poly
 SommetP v4pPolyAjouteSommet(PolyP p, Coord x, Coord y) {
-   SommetP s;
-   if (v4p.hautTasSommet < MAX_SOMMET)
-      s = &(v4p.tasSommet[v4p.hautTasSommet++]);
-   else {
-      s = v4p.trouTasSommet;
-      if (!s) return (v4pErreurRappel("tasSommet plein"), NULL) ;
-      v4p.trouTasSommet = s->suivant;
-   }
+   SommetP s = QuickHeapAlloc(v4p->tasSommet) ;
    s->x = x;
    s->y = y;
    if (!p->sommet1) {
@@ -318,11 +293,11 @@ PolyP v4pPolySuprSommet(PolyP p, SommetP s) {
            || s->x == p->maxx || s->y == p->maxy)) {
       p->miny = ~0 ; // calcul a refaire
    }
-   s->suivant = v4p.trouTasSommet;
-   v4p.trouTasSommet = s;
+
+   QuickHeapFree(v4p->tasSommet, s) ;
 
    // p modif
-   return p;
+   return p ;
 }
 
 // transforme un chiffre hexa ('0-9,A-F') en int
@@ -358,7 +333,7 @@ PolyP v4pDecodeSommets(PolyP p, char *s) {
       if (c == '.') {
          sep = true;
          if (psep)
-            v4pPolyAjouteSommet(p, xs1 * v4p.pas, ys1 * v4p.pas);
+            v4pPolyAjouteSommet(p, xs1 * v4p->pas, ys1 * v4p->pas);
          continue;
       }
 
@@ -368,7 +343,7 @@ PolyP v4pDecodeSommets(PolyP p, char *s) {
       j++ ;
       ys = v4pXToD(c) << 4 + v4pXToD(s[++j]);
       j++;
-      v4pPolyAjouteSommet(p, xs * v4p.pas, ys * v4p.pas);
+      v4pPolyAjouteSommet(p, xs * v4p->pas, ys * v4p->pas);
 
       if (sep) {
          xs1 = xs ;
@@ -377,7 +352,7 @@ PolyP v4pDecodeSommets(PolyP p, char *s) {
       }
   }
   if (psep)
-     v4pPolyAjouteSommet(p, xs1 * v4p.pas, ys1 * v4p.pas);
+     v4pPolyAjouteSommet(p, xs1 * v4p->pas, ys1 * v4p->pas);
 
   return p;
 }
@@ -410,7 +385,7 @@ char *v4pEncodeSommets(PolyP p) {
         for (i = 0; i <= 1; i++) {
            if (!i) v = m->x;
               else v = m->y;
-           v /= v4p.pas;
+           v /= v4p->pas;
            s[l++] = t[v & 15];
            s[l++] = t[(v >> 4) & 15];
          }
@@ -434,109 +409,32 @@ PolyP v4pPolyCognable(PolyP p, ICollision i) {
 
 // crée un BA chainé par 'suivant' aux autres BA du poly
 BAP v4pBACree(PolyP p) {
-   BAP b ;
-   if (v4p.hautTasBA < MAX_BA) {
-      b = &(v4p.tasBA[v4p.hautTasBA++]);
-   } else {
-      b = v4p.trouTasBA;
-      if (!b) return (v4pErreurRappel("tasBA full"), NULL) ;
-      v4p.trouTasBA = b->suivant;
-   }
-
+   BAP b = QuickHeapAlloc(v4p->tasBA) ;
    b->p = p;
-   b->aGauche = b->aDroite = b->enBas = NULL;
    b->suivant = p->BA1;
-
    return (p->BA1 = b);
-}
-
-// ajoute un BA à v4p.listeBAx
-BAP v4pBADansListe(BAP b) {
- if (v4p.listeBAx)
-   v4p.listeBAx->aGauche = b;
- b->aGauche = NULL;
- b->aDroite = v4p.listeBAx;
- return (v4p.listeBAx = b);
-}
-
-// retire un BA de v4p.listeBAx
-BAP v4pBAHorsListe(BAP b) {
-   if (v4p.listeBAx == b)
-      v4p.listeBAx = b->aDroite;
-   if (b->aGauche)
-      b->aGauche->aDroite = b->aDroite;
-   if (b->aDroite)
-      b->aDroite->aGauche = b->aGauche;
-   b->aGauche = b->aDroite = NULL;
-   return b;
 }
 
 // supprime tous les BA d'un poly
 PolyP v4pPolySuprBAs(PolyP p) {
    BAP b, s;
    for (b = p->BA1; b; b = s) {
-      v4pBAHorsListe(b);
       s = b->suivant;
-      b->enBas = NULL;
-      b->suivant = v4p.trouTasBA;
-      v4p.trouTasBA = b;
+      QuickHeapFree(v4p->tasBA, b) ;
    }
    p->BA1 = NULL;
    return p;
 }
 
 // fonction pour merge-sort
-BAP v4pFusionneListeBAy(BAP liste1, BAP liste2) {
-   BAP liste = liste1, p = NULL;
-   while (liste1 && liste2) {
-      if (liste1->y0 < liste2->y0)
-         p = liste1;
-      else {
-         if (p)
-            p->enBas = liste2;
-         else
-            liste = liste2;
-         p = liste2;
-         liste2 = liste1;
-      }
-      liste1 = p->enBas;
-   }
-
-   if (liste2) {
-      if (p)
-         p->enBas = liste2;
-      else
-         liste = liste2;
-   }
-
-   return liste;
+int compareListeBAy0(void *data1, void *data2) {
+   BAP b1 = data1, b2 = data2 ;
+   return (b1->y0 >= b2->y0) ;
 }
 
-// trie par merge-sort d'une liste de BA chainés par 'enBas' dans l'ordre de 'y0'
-BAP v4pTriBAy(BAP liste) {
-   BAP sl1, sl2, bad=NULL ;
-   Coord y0p ;
-   if (!liste) return NULL ;
-
-   sl1 = sl2 = liste;
-   if (sl2) { y0p = sl2->y0 ; sl2 = sl2->enBas; }
-   while (sl2 && sl2->enBas) {
-      if (sl2->y0 < y0p) bad = sl2 ;
-      y0p = sl2->y0 ;
-      sl2 = sl2->enBas ;
-      if (sl2->y0 < y0p) bad = sl2 ;
-      y0p = sl2->y0 ;
-      sl2 = sl2->enBas ;
-      sl1 = sl1->enBas;
-   }
-   if (sl2 && sl2->y0 < y0p) bad = sl2 ;
-   if (!bad) return liste ;
-   sl2 = sl1->enBas;
-   if (sl2) {
-      sl1->enBas = NULL;
-      return v4pFusionneListeBAy(v4pTriBAy(liste), v4pTriBAy(sl2));
-   } else
-      return liste;
+List v4pTriListeBAy(List liste) {
+   ListSetCompareData(compareListeBAy0) ;
+   return ListSort(liste) ;
 }
 
 // fonction récursive appelée par v4pAjusteClone()
@@ -641,15 +539,15 @@ Boolean v4pEstVisible(PolyP p) {
    { Coord minx = p->minx, maxx = p->maxx, miny = p->miny, maxy = p->maxy;
 
    if (!(p->props & relatif)) {
-      minx -= v4p.xvu0;
-      miny -= v4p.yvu0;
-      maxx -= v4p.xvu0;
-      maxy -= v4p.yvu0;
-      if (v4p.echellage) {
-         minx = minx * v4p.divxvu + (minx * v4p.modxvu) / v4p.dxvu;
-         maxx = maxx * v4p.divxvu + (maxx * v4p.modxvu) / v4p.dxvu;
-         miny = miny * v4p.divyvu + (miny * v4p.modyvu) / v4p.dyvu;
-         maxy = maxy * v4p.divyvu + (maxy * v4p.modyvu) / v4p.dyvu;
+      minx -= v4p->xvu0;
+      miny -= v4p->yvu0;
+      maxx -= v4p->xvu0;
+      maxy -= v4p->yvu0;
+      if (v4p->echellage) {
+         minx = minx * v4p->divxvu + (minx * v4p->modxvu) / v4p->dxvu;
+         maxx = maxx * v4p->divxvu + (maxx * v4p->modxvu) / v4p->dxvu;
+         miny = miny * v4p->divyvu + (miny * v4p->modyvu) / v4p->dyvu;
+         maxy = maxy * v4p->divyvu + (maxy * v4p->modyvu) / v4p->dyvu;
       }
    }
    p->minyv = miny ;
@@ -658,7 +556,7 @@ Boolean v4pEstVisible(PolyP p) {
    }
 }
 
-// genere les BA associés à un poly et les ajoute à v4p.listeBAy
+// genere les BA associés à un poly et les ajoute à la liste
 PolyP v4pPolyCompileBA(PolyP p) {
    SommetP sa, sb, s1;
    Boolean boucle, fin;
@@ -694,15 +592,15 @@ PolyP v4pPolyCompileBA(PolyP p) {
             dy = sy1 - sy0;
 
             if (!(p->props & relatif)) {
-                sx0 -= v4p.xvu0;
-                sy0 -= v4p.yvu0;
-                sx1 -= v4p.xvu0;
-                sy1 -= v4p.yvu0;
-                if (v4p.echellage) {
-                   sx0 = sx0 * v4p.divxvu + (sx0 * v4p.modxvu) / v4p.dxvu;
-                   sy0 = sy0 * v4p.divyvu + (sy0 * v4p.modyvu) / v4p.dyvu;
-                   sx1 = sx1 * v4p.divxvu + (sx1 * v4p.modxvu) / v4p.dxvu;
-                   sy1 = sy1 * v4p.divyvu + (sy1 * v4p.modyvu) / v4p.dyvu;
+                sx0 -= v4p->xvu0;
+                sy0 -= v4p->yvu0;
+                sx1 -= v4p->xvu0;
+                sy1 -= v4p->yvu0;
+                if (v4p->echellage) {
+                   sx0 = sx0 * v4p->divxvu + (sx0 * v4p->modxvu) / v4p->dxvu;
+                   sy0 = sy0 * v4p->divyvu + (sy0 * v4p->modyvu) / v4p->dyvu;
+                   sx1 = sx1 * v4p->divxvu + (sx1 * v4p->modxvu) / v4p->dxvu;
+                   sy1 = sy1 * v4p->divyvu + (sy1 * v4p->modyvu) / v4p->dyvu;
                }
             }
 
@@ -732,8 +630,8 @@ PolyP v4pPolyCompileBA(PolyP p) {
             }
 
             // BA dans liste y
-            b->enBas = v4p.listeBAy ;
-            v4p.listeBAy = b ;
+            ListAddData(v4p->listeBAy, b) ;
+
          } // actif
          if (boucle) {
             s1 = NULL ;
@@ -755,172 +653,54 @@ PolyP v4pPolyCompileBA(PolyP p) {
    return p ;
 }
 
-// fonction appelée par v4pTriPoly
-PolyP v4pFusionneListePoly(PolyP liste1, PolyP liste2) {
-   PolyP p, liste ;
-   liste = liste1 ;
-   p = NULL ;
-   while (liste1 && liste2) {
-      if (liste1->minyv < liste2->minyv)
-         p = liste1 ;
-      else {
-         if (p)
-            p->enBas = liste2 ;
-         else
-            liste = liste2 ;
-         p = liste2 ;
-         liste2 = liste1 ;
-      }
-      liste1 = p->enBas ;
-   }
-   if (liste2)
-      if (p)
-         p->enBas = liste2 ;
-      else
-         liste = liste2 ;
-
-   return liste ;
+// compare le minyv de 2 polys
+int comparePolyMinyv(void *data1, void *data2) {
+  PolyP p1 = data1, p2 = data2 ;
+  return (p1->minyv >= p2->minyv) ;
 }
 
-// trie par merge-sort une liste de poly chainés par 'enBas' dans l'ordre de 'miny'
-PolyP v4pTriPoly(PolyP liste) {
-   PolyP l1, l2, bad=NULL ;
-   Coord minyp ;
-   if (!liste) return NULL ;
-
-   l1 = l2 = liste ;
-   if (l2) { minyp = l2->minyv ; l2 = l2->enBas ; }
-   while (l2 && l2->enBas) {
-      if (l2->minyv < minyp) bad = l2 ;
-      minyp = l2->minyv ;
-      l2 = l2->enBas ;
-      if (l2->minyv < minyp) bad = l2 ;
-      minyp = l2->minyv ;
-      l2 = l2->enBas ;
-      l1 = l1->enBas ;
-   }
-   if (l2 && l2->minyv < minyp) bad = l2 ;
-   if (!bad) return liste ;
-   l2 = l1->enBas ;
-   if (l2) {
-      l1->enBas = NULL ;
-      return v4pFusionneListePoly(v4pTriPoly(liste), v4pTriPoly(l2)) ;
-   } else
-      return liste ;
+// trie une liste de poly dans l'ordre de 'miny'
+List v4pTriPoly(List liste) {
+   ListSetCompareData(comparePolyMinyv) ;
+   return ListSort(liste) ;
 }
 
-// charge une liste de poly dans v4p.listeAOuvrir, ainsi que leurs descendants
-void v4pChargeListeAOuvrir(PolyP l) {
+// compare le maxyv de 2 polys
+int comparePolyMaxyv(void *data1, void *data2) {
+  PolyP p1 = data1, p2 = data2 ;
+  return (p1->maxyv >= p2->maxyv) ;
+}
+
+// trie une liste de poly dans l'ordre de 'maxy'
+List v4pTriPolyOuverts(List liste) {
+   ListSetCompareData(comparePolyMaxyv) ;
+   return ListSort(liste) ;
+}
+
+// charge une liste de poly dans v4p.listePolyOuvrables, ainsi que leurs descendants
+void v4pChargelistePolyOuvrables(PolyP l) {
    PolyP p ;
    for (p = l ; p ; p = p->suivant) {
       if (p->props & inactif) continue ;
 
       if (!v4pEstVisible(p)) continue ;
 
-      if (p->sub1) v4pChargeListeAOuvrir(p->sub1) ;
+      if (p->sub1) v4pChargelistePolyOuvrables(p->sub1) ;
 
-      p->enBas = v4p.listeAOuvrir ;
-      v4p.listeAOuvrir = p ;
+      ListAddData(v4p->listePolyOuvrables, p) ;
    }
 }
 
 // fonction appelée par v4pTriBA()
-BAP v4pFusionneListeBA(BAP liste1, BAP liste2) {
-   BAP liste, p ;
-   liste = liste1 ;
-   p = NULL ;
-   while (liste1 && liste2) {
-      if (liste1->x < liste2->x)
-         p = liste1 ;
-      else {
-         liste2->aGauche = p ;
-         if (p)
-            p->aDroite = liste2 ;
-         else
-            liste = liste2 ;
-         liste1->aGauche = NULL ;
-         p = liste2 ;
-         liste2 = liste1 ;
-      }
-      liste1 = p->aDroite ;
-   }
-   if (liste2) {
-      liste2->aGauche = p ;
-      if (p)
-         p->aDroite = liste2 ;
-      else
-         liste = liste2 ;
-   }
-   return liste ;
+int compareBAx(void *data1, void *data2) {
+   BAP p1=data1, p2=data2 ;
+   return (p1->x >= p2->x) ;
 }
 
-// trie par merge-sort une liste de BA doublement-chainés par 'aDroite' et 'aGauche' dans l'ordre de 'x'
-BAP v4pTriBA(BAP liste) {
-   BAP b, n, sl1, sl2, bad=NULL ;
-   Coord xp ;
-   if (!liste) return NULL ;
-   sl1 = sl2 = liste ;
-   if (sl2) { xp = sl2->x ; sl2 = sl2->aDroite ; }
-   while (sl2 && sl2->aDroite) {
-      if (sl2->x < xp) bad = sl2 ;
-      xp = sl2->x ;
-      sl2 = sl2->aDroite ;
-      if (sl2->x < xp) bad = sl2 ;
-      xp = sl2->x ;
-      sl2 = sl2->aDroite ;
-      sl1 = sl1->aDroite ;
-   }
-   if (sl2 && sl2->x < xp) bad = sl2 ;
-   if (!bad) return liste ;
-   sl2 = sl1->aDroite ;
-   if (sl2) {
-      sl1->aDroite = NULL ;
-      sl2->aGauche = NULL ;
-      // rem : le tri est a l'envers puis la fusion renverse le tri
-      return v4pFusionneListeBA(v4pTriBA(liste), v4pTriBA(sl2)) ;
-   } else
-      return liste ;
-}
-
-// met à jour le tri d'une liste de BA doublement-chainés par 'aDroite' et 'aGauche' dans l'ordre de 'x'
-BAP v4pMajTriBA(BAP liste) {
-   Coord xp, xb ;
-   BAP b, s, p, r ;
-   if (!liste) return NULL ;
-   b = liste ;
-   p = b ;
-   xp = p->x ;
-   b = b->aDroite ;
-   while (b) {
-     xb = b->x ;
-     if (xb >= xp) {
-        p = b ;
-        xp = xb ;
-        b = b->aDroite ;
-     } else {
-        s = b->aDroite ;
-        if (s)
-           s->aGauche = p ;
-        p->aDroite = s ;
-        r = p->aGauche ;
-        while (r && b->x < r->x)
-            r = r->aGauche ;
-        if (!r) {
-            b->aGauche = NULL ;
-            b->aDroite = liste ;
-            liste->aGauche = b ;
-            liste = b ;
-        } else {
-            b->aGauche = r ;
-            b->aDroite = r->aDroite ;
-            if (r->aDroite)
-               r->aDroite->aGauche = b ;
-            r->aDroite = b ;
-        }
-        b = s ;
-     }
-   }
-   return liste ;
+// trie une liste de BA dans l'ordre de 'x'
+List v4pTriBA(List liste) {
+   ListSetCompare(compareBAx) ;
+   return ListSort(liste) ;
 }
 
 // dessine un trancon de scan-line en fonction du poly auquel il appartient
@@ -930,55 +710,53 @@ Boolean v4pDessinTrancon(int y, int x0, int x1, PolyP p) {
 
 // projette des coordonnées relatives à la vue dans le repère de la scène
 void v4pVueEnAbsolu(Coord x, Coord y, Coord *xa, Coord *ya) {
-   *xa = v4p.xvu0 + x * v4p.divxvub + x * v4p.modxvub / largeurLigne ;
-   *ya = v4p.yvu0 + y * v4p.divyvub + y * v4p.modyvub / nbLignes ;
+   *xa = v4p->xvu0 + x * v4p->divxvub + x * v4p->modxvub / largeurLigne ;
+   *ya = v4p->yvu0 + y * v4p->divyvub + y * v4p->modyvub / nbLignes ;
 }
 
 // ouvre tous les polys nouvellement intersectés par la scan-line
 PolyP v4pOuvrePolys(int y) {
-   PolyP p, s, pr, ppr ;
+   PolyP p ;
+   List l ;
    Boolean nouv = false ;
 
-   for (p = v4p.listeAOuvrir ; p && p->miny <= y ; p = s) {
-      s = p->enBas ;
+   for (l = v4p->listePolyOuvrables ; l && (p = (PolyP)ListData(l))->miny <= y ; l = ListFree(l)) {
       if (p->maxyv < y) continue ;
 
       v4pPolyCompileBA(p) ;
       nouv = true ;
-      pr = v4p.listeAFermer ;
-      ppr = NULL ;
-      while (pr && pr->maxyv < p->maxyv) {
-         ppr = pr ;
-         pr = pr->enBas ;
-      }
-      p->enBas = pr ;
-      if (!ppr)
-         v4p.listeAFermer = p ;
-      else
-         ppr->enBas = p ;
+
+      ListAddData(v4p->listePolyOuverts, p) ;
    }
-   if (nouv) v4p.listeBAy = v4pTriBAy(v4p.listeBAy) ;
-   return v4p.listeAOuvrir = p ;
+
+   if (nouv) {
+     v4p->listeBAy = v4pTriBAy(v4p->listeBAy) ;
+     v4p->listePolyOuverts = v4pTriPolyOuverts(v4p->listePolyOuverts) ;
+   }
+
+   return v4p->listePolyOuvrables = l ;
 }
 
 // ouvre tous les BA nouvellement intersectés par la scan-line
 Boolean v4pOuvreBA(Coord y) {
    Boolean ouvr = false ;
+   List l ;
    BAP b ;
-   for ( b = v4p.listeBAy ; b && b->y0 <= y ; b = b->enBas) {
+   for ( l = v4p->listeBAy ; l && (b = (BAP)ListData(l))->y0 <= y ; l = ListNext(l)) {
       if (b->y1 <= y) continue ;
       b->s = b->r2 - 1 ;
       b->x = b->x0 ;
       v4pBADansListe(b) ;
       ouvr = true ;
    }
-   v4p.listeBAy = b ;
+   v4p->listeBAy = l ;
    return ouvr ;
 }
 void dprintf(Coord x, Coord y, Char *formatString, ...) ;
 
 // affiche une scene avec une vue
 Boolean v4pAffiche() {
+   List l, pl ;
    PolyP p, polyVisible ;
    BAP b, pb ;
    Coord y, px ;
@@ -994,40 +772,44 @@ Boolean v4pAffiche() {
    v4pAffichageRappel() ;
 
    // vide les BA
-   v4p.hautTasBA = 0 ;
-   v4p.trouTasBA = NULL ;
-   v4p.listeBAy = NULL ; // tri vertical BA
+   v4p->tasBA->size = 0 ;
+   v4p->tasBA->hole = NULL ;
+   v4p->listeBAy = NULL ; // tri vertical BA
 
-   //listeAOuvrir = prochain poly a ouvrir
-   //listeAFermer = prochain poly ouvert a fermer
-   v4p.listeAOuvrir = NULL ;
-   v4p.listeAFermer= NULL ;
-   if (!v4p.scene) return failure;
-   v4pChargeListeAOuvrir(*v4p.scene) ;
-   v4p.listeAOuvrir = v4pTriPoly(v4p.listeAOuvrir) ;
+   //listePolyOuvrables = prochain poly a ouvrir
+   //listePolyOuverts = prochain poly ouvert a fermer
+   v4p->listePolyOuvrables = NULL ;
+   v4p->listePolyOuverts= NULL ;
+   if (!v4p->scene) return failure;
+   v4pChargelistePolyOuvrables(*(v4p->scene)) ;
+   v4p->listePolyOuvrables = v4pTriPoly(v4p->listePolyOuvrables) ;
    v4pOuvrePolys(0) ;
 
    // liste BA ouverts
-   v4p.listeBAx = NULL ;
+   v4p->listeBAx = NULL ;
    v4pOuvreBA(0) ;
-   v4p.listeBAx = v4pTriBA(v4p.listeBAx) ;
+   v4p->listeBAx = v4pTriBA(v4p->listeBAx) ;
    // bcl scanline
    for (y = 0 ; y < nbLignes ; y++) {
 
       // bcl ferme poly
-      while (v4p.listeAFermer && y > v4p.listeAFermer->maxyv) {
-         v4pPolySuprBAs(v4p.listeAFermer) ;
-         v4p.listeAFermer = v4p.listeAFermer->enBas ;
-      }
+      l = v4p->listePolyOuverts ;
+      for ( ; l && y > (p = (PolyP)ListData(l))->maxyv) ; l = ListFree(l))
+         v4pPolySuprBAs(p) ;
+      v4p->listePolyOuverts = l;
 
       // bcl BA ouvert
-      b = v4p.listeBAx ;
-      while (b) {
-         if (y >= b->y1) { // BA a fermer
-            pb = b->aDroite ;
-            v4pBAHorsListe(b) ;
-            b = pb ;
+      l = v4p->listeBAx ;
+      pl = NULL ;
+      while (l) {
+         b = (BAP)ListData(l) ;
+         if (y >= b->y1) { // ferme BA
+            if (pl)
+               ListSetNext(pl, l = ListFree(l)) ;
+            else
+               v4p->listeBAx = l = ListFree(l) ;
          } else { // decale BA
+
             if (b->s > 0) {
                b->x+= b->o2 ;
                b->s+= b->r2 ;
@@ -1035,18 +817,19 @@ Boolean v4pAffiche() {
                b->x+= b->o1 ;
                b->s+= b->r1 ;
             }
-            b = b->aDroite ;
+            pl = l ;
+            l = ListNext(l) ;
          }
       } // bcl BA ouvert
 
-      // bcl ouvre poly
+      // ouvre poly nouvellement intersectés
       v4pOuvrePolys(y) ;
 
-      // bcl ouvre BA
-      if (v4pOuvreBA(y))
-         v4p.listeBAx = v4pTriBA(v4p.listeBAx) ;
-      else
-         v4p.listeBAx = v4pMajTriBA(v4p.listeBAx) ;
+      // ouvre BA nouvellement intersectés
+      v4pOuvreBA(y) ;
+
+      // trie BA
+      v4p->listeBAx = v4pTriBA(v4p->listeBAx) ;
 
       // reset couches
       bz = 0 ;
@@ -1059,8 +842,11 @@ Boolean v4pAffiche() {
 
       // parcours trancon de la scanline
       px = 0 ;
-      for (b = v4p.listeBAx ; b ; b = b->aDroite) { // parcours BA ouvert / x
-          if (b->x > 1000) dprintf(0,0, "problem %d %d %d", (int)b->x, (int)px, (b->aGauche ? b->aGauche->x : -1));
+      b = NULL ;
+      for (l = v4p->listeBAx ; l ; l = ListNext(l)) { // parcours BA ouvert / x
+          pb = b ;
+          b = (BAP)ListData(l) ;
+          if (b->x > 1000) dprintf(0,0, "problem %d %d %d", (int)b->x, (int)px, (pb ? pb->x : -1));
           if (b->x > 0) {
               //if (px > b->x) v4pErreurRappel("pb trancon %d %d %d", (int)y, (int)px, (int)b->x);
               if (y >= 0 && y < nbLignes && px < largeurLigne)
@@ -1117,10 +903,16 @@ Boolean v4pAffiche() {
 
    } // bcl y ;
 
+   // vide les listes
+   while (v4p->listePolyAOuvrir)
+     v4p->listePolyAOuvrir = ListFree(v4p->listePolyAOuvrir) ;
+   while (v4p->listeBAx)
+     v4p->listeBAx = ListFree(v4p->listeBAx) ;
+
    // ferme les polys encore ouverts
-   while (v4p.listeAFermer) {
-      v4pPolySuprBAs(v4p.listeAFermer) ;
-      v4p.listeAFermer = v4p.listeAFermer->enBas ;
+   while (v4p->listePolyOuverts) {
+      v4pPolySuprBAs((BAP)ListData(v4p->listePolyOuverts)) ;
+      v4p->listePolyOuverts = ListFree(v4p->listePolyOuverts) ;
    }
 
    v4pAffichageFinRappel() ;
@@ -1144,8 +936,7 @@ PolyProps v4pDesactivePoly(PolyP p) {
    return v4pPolyPoseProp(p, inactif) ;
 }
 
-
 // Prend un pointeur de liste: a scene de polys
 void v4pPrendScene(PolyP *scene) {
-   v4p.scene = scene ;
+   v4p->scene = scene ;
 }
