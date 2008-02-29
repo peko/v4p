@@ -6,8 +6,9 @@
 #include <stdlib.h>
 
 QuickHeap QuickHeapNew(int sizeOfItem) {
+  QuickHeapS s = QuickHeapInitializerFor(void *) ;
   QuickHeap n = (QuickHeap)malloc(sizeof(QuickHeapS)) ;
-  *n = QuickHeapInitializerFor(void *) ;
+  *n = s ;
   n->sizeOfItem = sizeOfItem ;
   return n ;
 }
@@ -19,21 +20,21 @@ void *QuickHeapAlloc(QuickHeap q) {
   if (q->size == q->maxSize) {
     if (q->maxSize == 0) {
       q->maxSize = 128 ;
-      q->heap = (List)malloc(q->sizeOfItem * 128) ;
+      q->heap = (char *)malloc(q->sizeOfItem * 128) ;
     } else if (q->hole) {
       n = q->hole ;
       if (!n) return NULL ;
-      q->hole = *n ;
+      q->hole = n ;
       return n ;
     } else {
       q->maxSize *= 2 ;
-      q->heap = (List)realloc(q->sizeOfItem * q->mMaxSize) ;
+      q->heap = (char *)realloc(q->heap, q->sizeOfItem * q->maxSize) ;
     }
   }
   return q->heap + q->sizeOfItem * q->size++ ;
 }
 
 void QuickHeapFree(QuickHeap q, void *p) {
-  *p = q->hole ;
+  *( void **)p = q->hole ;
   q->hole = p ;
 }

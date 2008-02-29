@@ -21,7 +21,7 @@ List ListFree(List p) ;
 #define ListNext(l) ((l)->next)
 #define ListSetNext(l,n) ((l)->next=(n))
 #define ListSetData(l,d) ((l)->data=(d))
-#define ListCompare(a,b) ListDataCompare((a)->data),(b)->data)
+#define ListCompare(A,B) ListDataCompare((A)->data,(B)->data)
 #define ListAdd(l,n) (ListSetNext(n, l), l = n)
 #define ListAddData(l,d) { List n = ListNew() ; ListSetData(n, d) ; ListAdd(l, n) ; }
 

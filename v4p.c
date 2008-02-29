@@ -36,6 +36,8 @@
 #include "v4p.h"
 #include <stdlib.h>
 #include "lowmath.h"
+#include "quickheap.h"
+#include "sortable.h"
 
 // external data&func
 extern Coord      nbLignes, largeurLigne ; // taille zone d'affichage
@@ -67,6 +69,7 @@ typedef struct ba_s {
  Coord x0, y0, x1, y1 ; // vecteur-bord
  PolyP p ; // polygone propriétaire
  Coord x, o1, o2, s, h, r1, r2 ; // bresenham: offset, sommes, nbLignes, restes
+ BAP suivant ;
 } BA ;
 
 // contexte V4P
@@ -121,7 +124,7 @@ V4pContext v4pContextCree() {
 }
 int v4pInit() {
   v4pContextCree() ;
-  return succes ;
+  return success ;
 }
 
 int v4pContexteChange(V4pContext p) {
@@ -433,7 +436,7 @@ int compareListeBAy0(void *data1, void *data2) {
 }
 
 List v4pTriListeBAy(List liste) {
-   ListSetCompareData(compareListeBAy0) ;
+   ListSetDataCompare(compareListeBAy0) ;
    return ListSort(liste) ;
 }
 
@@ -661,7 +664,7 @@ int comparePolyMinyv(void *data1, void *data2) {
 
 // trie une liste de poly dans l'ordre de 'miny'
 List v4pTriPoly(List liste) {
-   ListSetCompareData(comparePolyMinyv) ;
+   ListSetDataCompare(comparePolyMinyv) ;
    return ListSort(liste) ;
 }
 
@@ -673,7 +676,7 @@ int comparePolyMaxyv(void *data1, void *data2) {
 
 // trie une liste de poly dans l'ordre de 'maxy'
 List v4pTriPolyOuverts(List liste) {
-   ListSetCompareData(comparePolyMaxyv) ;
+   ListSetDataCompare(comparePolyMaxyv) ;
    return ListSort(liste) ;
 }
 
@@ -699,7 +702,7 @@ int compareBAx(void *data1, void *data2) {
 
 // trie une liste de BA dans l'ordre de 'x'
 List v4pTriBA(List liste) {
-   ListSetCompare(compareBAx) ;
+   ListSetDataCompare(compareBAx) ;
    return ListSort(liste) ;
 }
 
@@ -715,7 +718,7 @@ void v4pVueEnAbsolu(Coord x, Coord y, Coord *xa, Coord *ya) {
 }
 
 // ouvre tous les polys nouvellement intersectés par la scan-line
-PolyP v4pOuvrePolys(int y) {
+List v4pOuvrePolys(int y) {
    PolyP p ;
    List l ;
    Boolean nouv = false ;
@@ -730,7 +733,7 @@ PolyP v4pOuvrePolys(int y) {
    }
 
    if (nouv) {
-     v4p->listeBAy = v4pTriBAy(v4p->listeBAy) ;
+     v4p->listeBAy = v4pTriListeBAy(v4p->listeBAy) ;
      v4p->listePolyOuverts = v4pTriPolyOuverts(v4p->listePolyOuverts) ;
    }
 
@@ -746,7 +749,7 @@ Boolean v4pOuvreBA(Coord y) {
       if (b->y1 <= y) continue ;
       b->s = b->r2 - 1 ;
       b->x = b->x0 ;
-      v4pBADansListe(b) ;
+      ListAddData(v4p->listeBAx, b) ;
       ouvr = true ;
    }
    v4p->listeBAy = l ;
@@ -793,10 +796,10 @@ Boolean v4pAffiche() {
    for (y = 0 ; y < nbLignes ; y++) {
 
       // bcl ferme poly
-      l = v4p->listePolyOuverts ;
-      for ( ; l && y > (p = (PolyP)ListData(l))->maxyv) ; l = ListFree(l))
-         v4pPolySuprBAs(p) ;
-      v4p->listePolyOuverts = l;
+      for (l = v4p->listePolyOuverts ;
+           l && y > (p = (PolyP)ListData(l))->maxyv ;
+           v4pPolySuprBAs(p), l = ListFree(l)) ;
+      v4p->listePolyOuverts = l ;
 
       // bcl BA ouvert
       l = v4p->listeBAx ;
@@ -904,15 +907,16 @@ Boolean v4pAffiche() {
    } // bcl y ;
 
    // vide les listes
-   while (v4p->listePolyAOuvrir)
-     v4p->listePolyAOuvrir = ListFree(v4p->listePolyAOuvrir) ;
-   while (v4p->listeBAx)
-     v4p->listeBAx = ListFree(v4p->listeBAx) ;
+   l = v4p->listePolyOuvrables ;
+   while (l) l = ListFree(l) ;
+   l = v4p->listeBAx ;
+   while (l) l = ListFree(l) ;
 
    // ferme les polys encore ouverts
-   while (v4p->listePolyOuverts) {
-      v4pPolySuprBAs((BAP)ListData(v4p->listePolyOuverts)) ;
-      v4p->listePolyOuverts = ListFree(v4p->listePolyOuverts) ;
+   l = v4p->listePolyOuverts ;
+   while (l) {
+      v4pPolySuprBAs((PolyP)ListData(l)) ;
+      l = ListFree(l) ;
    }
 
    v4pAffichageFinRappel() ;

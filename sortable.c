@@ -14,7 +14,8 @@
 #include "quickheap.h"
 
 // A Heap for lists
-static QuickHeap listHeap = QuickHeapInitializerFor(struct sList) ;
+static QuickHeapS listHeapS = QuickHeapInitializerFor(struct sList) ;
+static QuickHeap listHeap = &listHeapS ;
 
 // A settable function to compare lists. Please set it before sorting!
 int (*ListDataCompare)(void *, void *) = NULL ;
@@ -66,6 +67,8 @@ List ListMerge(List previous, List after) {
 
 // cut list at end of the first rise, and returns the next rise
 List ListGetNextRise(List l) {
+   List last ;
+
    if (!l) return NULL ;
 
    // sorting break search loop
@@ -89,14 +92,14 @@ static List down(List list, int level, List *remaining) {
      return NULL ;
      }
 
-  if (!hauteur)
+  if (!level)
      {
      *remaining = ListGetNextRise(list) ;
      return list ;
      }
 
-  l1 = down(list, hauteur-1, &sub_remaining) ;
-  l2 = down(sub_remaining, hauteur-1, remaining) ;
+  l1 = down(list, level-1, &sub_remaining) ;
+  l2 = down(sub_remaining, level-1, remaining) ;
   return ListMerge(l1, l2) ;
 }
 
