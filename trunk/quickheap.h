@@ -3,13 +3,13 @@
 /* ========================================================================== */
 typedef struct sQuickHeap {
    int sizeOfItem ;
-   void *heap ;
+   char *heap ;
    int maxSize ;
    int size ;
-   void *hole ;
-} QuickHeapS, QuickHeap ;
+   char *hole ;
+} QuickHeapS, *QuickHeap ;
 
-#define QuickHeapInitializerFor(T) { sizeof(T) ; (void *)0 ; 0 ; 0 ; (void *)0 }
+#define QuickHeapInitializerFor(T) { sizeof(T), (char *)0, 0, 0, (char *)0 }
 
 QuickHeap QuickHeapNew(int sizeOfItem) ;
 
@@ -17,4 +17,4 @@ QuickHeap QuickHeapNew(int sizeOfItem) ;
 
 void *QuickHeapAlloc(QuickHeap q) ;
 
-void QuickHeapFree(QuickHeap q, void *p) ;
+void QuickHeapFree(QuickHeap q, void  *p) ;
