@@ -12,13 +12,13 @@ Totoe.ro:	Totoe.rcp
 
 Totoe.o:	Totoe.c Totoe.h
 	rm -f *.grc
-	m68k-palmos-gcc -fno-builtin  -I/usr/src/v4p  -o Totoe.o -I. -I/m68k-palmos/include -c Totoe.c
+	m68k-palmos-gcc -g -fno-builtin  -I/usr/src/v4p  -o Totoe.o -I. -I/m68k-palmos/include -c Totoe.c
 
 Totoe.prc:	Totoe Totoe.ro
 	build-prc -n 'Totoe' -c 'TOTE' -o Totoe.prc Totoe.ro Totoe
 
 Totoe:	Totoe.o  /usr/src/v4p/libv4p.a
-	m68k-palmos-gcc -o Totoe Totoe.o  /usr/src/v4p/libv4p.a  -L/m68k-palmos/lib
+	m68k-palmos-gcc -g -o Totoe Totoe.o  /usr/src/v4p/libv4p.a  -L/m68k-palmos/lib
 
 clean:
 	rm -f Totoe.ro Totoe Totoe.o

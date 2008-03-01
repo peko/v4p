@@ -731,13 +731,15 @@ List v4pOuvrePolys(int y) {
 
       ListAddData(v4p->listePolyOuverts, p) ;
    }
+   v4p->listePolyOuvrables = l ;
 
    if (nouv) {
      v4p->listeBAy = v4pTriListeBAy(v4p->listeBAy) ;
      v4p->listePolyOuverts = v4pTriPolyOuverts(v4p->listePolyOuverts) ;
    }
 
-   return v4p->listePolyOuvrables = l ;
+
+   return v4p->listePolyOuverts ;
 }
 
 // ouvre tous les BA nouvellement intersectés par la scan-line

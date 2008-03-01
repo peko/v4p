@@ -23,7 +23,7 @@ List ListFree(List p) ;
 #define ListSetData(l,d) ((l)->data=(d))
 #define ListCompare(A,B) ListDataCompare((A)->data,(B)->data)
 #define ListAdd(l,n) (ListSetNext(n, l), l = n)
-#define ListAddData(l,d) { List n = ListNew() ; ListSetData(n, d) ; ListAdd(l, n) ; }
+#define ListAddData(l,d) { List _n = ListNew() ; ListSetData(_n, d) ; ListAdd(l, _n) ; }
 
 // merge 2 lists by keeping sort direction thanks to mutable links
 List ListMerge(List previous, List after) ;
