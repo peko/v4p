@@ -432,11 +432,11 @@ PolyP v4pPolySuprBAs(PolyP p) {
 // fonction pour merge-sort
 int compareListeBAy0(void *data1, void *data2) {
    BAP b1 = data1, b2 = data2 ;
-   return (b1->y0 >= b2->y0) ;
+   return (b1->y0 < b2->y0) ;
 }
 
 List v4pTriListeBAy(List liste) {
-   ListSetDataCompare(compareListeBAy0) ;
+   ListSetDataPrior(compareListeBAy0) ;
    return ListSort(liste) ;
 }
 
@@ -659,24 +659,24 @@ PolyP v4pPolyCompileBA(PolyP p) {
 // compare le minyv de 2 polys
 int comparePolyMinyv(void *data1, void *data2) {
   PolyP p1 = data1, p2 = data2 ;
-  return (p1->minyv >= p2->minyv) ;
+  return (p1->minyv < p2->minyv) ;
 }
 
 // trie une liste de poly dans l'ordre de 'miny'
 List v4pTriPoly(List liste) {
-   ListSetDataCompare(comparePolyMinyv) ;
+   ListSetDataPrior(comparePolyMinyv) ;
    return ListSort(liste) ;
 }
 
 // compare le maxyv de 2 polys
 int comparePolyMaxyv(void *data1, void *data2) {
   PolyP p1 = data1, p2 = data2 ;
-  return (p1->maxyv >= p2->maxyv) ;
+  return (p1->maxyv < p2->maxyv) ;
 }
 
 // trie une liste de poly dans l'ordre de 'maxy'
 List v4pTriPolyOuverts(List liste) {
-   ListSetDataCompare(comparePolyMaxyv) ;
+   ListSetDataPrior(comparePolyMaxyv) ;
    return ListSort(liste) ;
 }
 
@@ -696,13 +696,13 @@ void v4pChargelistePolyOuvrables(PolyP l) {
 
 // fonction appelée par v4pTriBA()
 int compareBAx(void *data1, void *data2) {
-   BAP p1=data1, p2=data2 ;
-   return (p1->x >= p2->x) ;
+   BAP b1 = data1, b2 = data2 ;
+   return (b1->x < b2->x) ;
 }
 
-// trie une liste de BA dans l'ordre de 'x'
+// trie une liste des BA ouverts dans l'ordre de 'x'
 List v4pTriBA(List liste) {
-   ListSetDataCompare(compareBAx) ;
+   ListSetDataPrior(compareBAx) ;
    return ListSort(liste) ;
 }
 

@@ -7,9 +7,11 @@ typedef struct sQuickHeap {
    int maxSize ;
    int size ;
    char *hole ;
+   struct sQuickHeap *next ;
 } QuickHeapS, *QuickHeap ;
 
-#define QuickHeapInitializerFor(T) { sizeof(T), (char *)0, 0, 0, (char *)0 }
+#define QuickHeapInitializer(S) { (S), (char *)0, 0, 0, (char *)0, NULL }
+#define QuickHeapInitializerFor(T) QuickHeapInitializer(sizeof(T))
 
 QuickHeap QuickHeapNew(int sizeOfItem) ;
 

@@ -5,8 +5,9 @@
 /* ========================================================================== */
 
 // A settable function to compare lists. Please set it before sorting!
-extern int (*ListDataCompare)(void *, void *) ;
-#define ListSetDataCompare(p) ListDataCompare = (p)
+// must return (arg1 < arg2)
+extern int (*ListDataPrior)(void *, void *) ;
+#define ListSetDataPrior(p) ListDataPrior = (p)
 
 // A classical linked list of orderable data
 typedef struct sList { void *data ; struct sList *next ; } *List ;
@@ -21,11 +22,11 @@ List ListFree(List p) ;
 #define ListNext(l) ((l)->next)
 #define ListSetNext(l,n) ((l)->next=(n))
 #define ListSetData(l,d) ((l)->data=(d))
-#define ListCompare(A,B) ListDataCompare((A)->data,(B)->data)
+#define ListPrior(A,B) ListDataPrior((A)->data,(B)->data)
 #define ListAdd(l,n) (ListSetNext(n, l), l = n)
 #define ListAddData(l,d) { List _n = ListNew() ; ListSetData(_n, d) ; ListAdd(l, _n) ; }
 
-// merge 2 lists by keeping sort direction thanks to mutable links
+// merge 2 lists
 List ListMerge(List previous, List after) ;
 
 // cut list at end of the first rise, and returns the next rise

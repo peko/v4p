@@ -8,7 +8,6 @@
 /*   concatenation of y (y << n) median-sized sub-lists.                      */
 /*   There are a lot of applicative case.                                     */
 /* ========================================================================== */
-#include <stdio.h>
 #include <stdlib.h>
 #include "sortable.h"
 #include "quickheap.h"
@@ -18,7 +17,8 @@ static QuickHeapS listHeapS = QuickHeapInitializerFor(struct sList) ;
 static QuickHeap listHeap = &listHeapS ;
 
 // A settable function to compare lists. Please set it before sorting!
-int (*ListDataCompare)(void *, void *) = NULL ;
+// must return (arg1 < arg2)
+int (*ListDataPrior)(void *, void *) = NULL ;
 
 // create a list item
 List ListNew() {
@@ -32,58 +32,66 @@ List ListFree(List p) {
   return next ;
 }
 
-// merge 2 lists by keeping sort direction thanks to mutable links
+// merge 2 lists
+// sort direction is kept by altering links in place
 List ListMerge(List previous, List after) {
-   List head, p, tmp ;
+   List head, last, tmp ;
 
-   if (!previous || after && !ListCompare(after, previous))
+   if (!previous && !after) return NULL ;
+
+   if (!previous || after && ListPrior(after, previous))
       { // 1st swapping of after & previous lists
       tmp = previous ;
       previous = after ;
       after = tmp ;
       }
-   head = p = previous ;
-   if (p) previous = ListNext(p) ;
+   head = last = previous ;
+   previous = ListNext(last) ;
 
    while (previous && after)
      {
-       if (!ListCompare(after, previous))
+       if (ListPrior(after, previous))
          {
-           // correct broken link
-           ListSetNext(p, after) ;
            // swap after & previous lists // xor swap?
            tmp = previous ;
            previous = after ;
            after = tmp ;
+           // correct link to previous
+           ListSetNext(last, previous) ;
          }
-       p = previous ;
-       previous = ListNext(p) ;
+       last = previous ;
+       previous = ListNext(last) ;
      }
 
-   ListSetNext(p, (after ? after : previous)) ;
+   if (after)
+      ListSetNext(last, after) ;
 
    return head ;
 }
 
 // cut list at end of the first rise, and returns the next rise
-List ListGetNextRise(List l) {
-   List last ;
+List ListGetNextRise(List list) {
+   List last, l ;
 
    if (!l) return NULL ;
 
    // sorting break search loop
-   for (last = l, l = ListNext(l) ;
-        l && ListCompare(l, last) ;
+   for (last = l = list, l = ListNext(l) ;
+        l && !ListPrior(l, last) ;
         last = l, l = ListNext(l)) ;
 
-   // will cut l at sort break
-   if (last) ListSetNext(last, NULL) ;
+   // cut l at ordering break
+   if (l) ListSetNext(last, NULL) ;
 
    return l ;
 }
 
-// look for and merge a structure of pairs of rises in a list
-// n=2^level consecutive rises from the head of the list are merged
+// look for n=2^level consecutive rises in a list
+// and merge them each others according to a binary tree scheme
+// in 'list' : a list
+// in 'level' : binary tree size
+// returns: the ordered sub-list
+// out 'remaining' : the remaining unordered part of the list
 static List down(List list, int level, List *remaining) {
   List sub_remaining, l1, l2 ;
   if (!list)
@@ -103,8 +111,8 @@ static List down(List list, int level, List *remaining) {
   return ListMerge(l1, l2) ;
 }
 
-// repeat until exhaustion of the unordered list :
-//  merge-sort a sub-list which weights as much as the already ordered list
+// repeat until exhaustion of the unordered part of the list :
+//  merge-sort a part of list of same weight than the already ordered list
 //  then merge both as a weight+1 ordered list
 
 List inlineDivideAndConquerSort(List list) {
@@ -119,9 +127,11 @@ List inlineDivideAndConquerSort(List list) {
   return done ;
 }
 
+// compile the test exe with "gcc -Dtest foo.c -o test"
 #ifdef TEST
+#include <stdio.h>
 
-int intDataCompare(void *a, void *b) {
+int intDataPrior(void *a, void *b) {
    return ((int)a) >= ((int b)) ;
 }
 
@@ -129,7 +139,7 @@ void main()
 {
    List demo = NULL, orderedList ;
 
-   ListSetDataCompare(intDataCompare) ;
+   ListSetDataPrior(intDataPrior) ;
 
    // create a random list of integers
    for (int i = 0 ; i < 1000 ; i++) {
