@@ -136,7 +136,7 @@ PolyP v4pPolyCree(PolyProps t, Couleur col, ICouche z) {
   PolyP p = QuickHeapAlloc(v4p->tasPoly) ;
   p->props = t;
   p->z = z;
-  p->i = -1;
+  p->i = (ICollision)-1;
   p->couleur = col;
   p->sommet1 = NULL;
   p->sub1 = NULL;
@@ -862,7 +862,7 @@ Boolean v4pAffiche() {
           i = p->i;
           z = p->z & 15;
           mz = (UInt16)1 << z ;
-          mi = (i < 0 ? (UInt16)0 : (UInt16)1 << (i & 15)) ;
+          mi = (i == (ICollision)-1 ? (UInt16)0 : (UInt16)1 << (i & 15)) ;
           if ((bz ^= mz) & mz) {
              couches[z] = p ;
              if ((int)z > zMax) {
