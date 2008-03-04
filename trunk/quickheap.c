@@ -6,42 +6,60 @@
 #include <stdlib.h>
 
 QuickHeap QuickHeapNew(int sizeOfItem) {
-  QuickHeapS s = QuickHeapInitializerFor(void *) ;
-  QuickHeap n = (QuickHeap)malloc(sizeof(QuickHeapS)) ;
-  *n = s ;
-  n->sizeOfItem = sizeOfItem ;
-  return n ;
+  QuickHeap p = (QuickHeap)malloc(sizeof(QuickHeapS)) ;
+  QuickHeapS newHeap = QuickHeapInitializerFor(void *) ;
+  newHeap.sizeOfItem = (sizeOfItem < sizeof(void *) ? sizeof(void *) : sizeOfItem) ;
+  *p = newHeap ;
+  return p ;
+}
+
+QuickHeap QuickHeapReservedNew(int sizeOfItem, int maxSize) {
+  QuickHeap p = (QuickHeap)malloc(sizeof(QuickHeapS)) ;
+  QuickHeapS newHeap = QuickHeapInitializerFor(void *) ;
+  newHeap.sizeOfItem = (sizeOfItem < sizeof(void *) ? sizeof(void *) : sizeOfItem) ;
+  newHeap.maxSize = maxSize ;
+  if (newHeap.maxSize)
+     newHeap.heap = (void *)malloc(newHeap.sizeOfItem * newHeap.maxSize) ;
+  *p = newHeap ;
+  return p ;
+}
+
+void QuickHeapReset(QuickHeap q) {
+  QuickHeap p = q->next ;
+  while (p) {
+    QuickHeap next = p->next ;
+    if (p->heap) free(p->heap) ;
+    free(p) ;
+    p = next ;
+  }
+  q->hole = NULL ;
+  q->size = 0 ;
+  q->next = NULL ;
 }
 
 #define QuickHeapNewFor(T) QuickHeapNew(sizeof(T))
 
 void *QuickHeapAlloc(QuickHeap q) {
-   void *n ;
-   char *heap ;
    if (q->maxSize == 0) {
       q->maxSize = 128 ;
-      q->heap = (char *)malloc(q->sizeOfItem * 128) ;
-      q->size = 1;
+      q->heap = (void *)malloc(q->sizeOfItem * 128) ;
+      q->size = 1 ;
       return q->heap ;
    } else if (q->hole) {
-      n = q->hole ;
-      q->hole = *(char **)n ;
-      return n ;
+      void *p = q->hole ;
+      q->hole = *(void **)p ;
+      return p ;
    } else if (q->next) {
        return QuickHeapAlloc(q->next) ;
    } else if (q->size >= q->maxSize) {
-      QuickHeapS next = QuickHeapInitializer(q->sizeOfItem) ;
-      q->next = (QuickHeap)malloc(sizeof(QuickHeapS));
-      *q->next = next ;
-      q->next->maxSize = q->maxSize * 2 ;
-      q->next->heap = (char *)malloc(q->sizeOfItem * q->maxSize * 2) ;
+      q->next = QuickHeapReservedNew(q->sizeOfItem, q->maxSize * 2) ;
       return QuickHeapAlloc(q->next) ;
    } else  {
-       return q->heap + q->sizeOfItem * q->size++ ;
+      return q->heap + q->sizeOfItem * q->size++ ;
    }
 }
 
 void QuickHeapFree(QuickHeap q, void *p) {
-  *( char **)p = q->hole ;
-  q->hole = (char *)p ;
+  *( void **)p = q->hole ;
+  q->hole = p ;
 }

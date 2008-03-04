@@ -573,7 +573,7 @@ PolyP v4pPolyCompileBA(PolyP p) {
       return p;
 
    s1 = p->sommet1;
-   while (s1) { // lacots
+   while (s1 && s1->suivant) { // lacots
       sa = s1;
       sb = s1->suivant;
       boucle = false;
@@ -747,7 +747,7 @@ Boolean v4pOuvreBA(Coord y) {
    Boolean ouvr = false ;
    List l ;
    BAP b ;
-   for ( l = v4p->listeBAy ; l && (b = (BAP)ListData(l))->y0 <= y ; l = ListNext(l)) {
+   for ( l = v4p->listeBAy ; l && (b = (BAP)ListData(l))->y0 <= y ; l = ListFree(l)) {
       if (b->y1 <= y) continue ;
       b->s = b->r2 - 1 ;
       b->x = b->x0 ;
@@ -777,8 +777,6 @@ Boolean v4pAffiche() {
    v4pAffichageRappel() ;
 
    // vide les BA
-   v4p->tasBA->size = 0 ;
-   v4p->tasBA->hole = NULL ;
    v4p->listeBAy = NULL ; // tri vertical BA
 
    //listePolyOuvrables = prochain poly a ouvrir
@@ -796,12 +794,6 @@ Boolean v4pAffiche() {
    v4p->listeBAx = v4pTriBA(v4p->listeBAx) ;
    // bcl scanline
    for (y = 0 ; y < nbLignes ; y++) {
-
-      // bcl ferme poly
-      for (l = v4p->listePolyOuverts ;
-           l && y > (p = (PolyP)ListData(l))->maxyv ;
-           v4pPolySuprBAs(p), l = ListFree(l)) ;
-      v4p->listePolyOuverts = l ;
 
       // bcl BA ouvert
       l = v4p->listeBAx ;
@@ -826,6 +818,12 @@ Boolean v4pAffiche() {
             l = ListNext(l) ;
          }
       } // bcl BA ouvert
+
+      // bcl ferme poly
+      for (l = v4p->listePolyOuverts ;
+           l && y > (p = (PolyP)ListData(l))->maxyv ;
+           v4pPolySuprBAs(p), l = ListFree(l)) ;
+      v4p->listePolyOuverts = l ;
 
       // ouvre poly nouvellement intersectés
       v4pOuvrePolys(y) ;
@@ -920,6 +918,11 @@ Boolean v4pAffiche() {
       v4pPolySuprBAs((PolyP)ListData(l)) ;
       l = ListFree(l) ;
    }
+
+   l = v4p->listeBAy ;
+   while (l) l = ListFree(l) ;
+
+   QuickHeapReset(v4p->tasBA) ;
 
    v4pAffichageFinRappel() ;
    return success ;
