@@ -113,7 +113,7 @@ int v4pChangeVue(Coord x0, Coord y0, Coord x1, Coord y1) {
 
 // Initialise le contexte V4P
 V4pContext v4pContextCree() {
-  v4p = (V4pContext)malloc(sizeof(V4pContextS)) ;
+  V4pContext v4p = (V4pContext)malloc(sizeof(V4pContextS)) ;
   v4p->scene = NULL;
   v4p->pas = 8;
   v4p->tasSommet = QuickHeapNewFor(Sommet) ;
@@ -122,13 +122,14 @@ V4pContext v4pContextCree() {
   v4pChangeVue(0,0, largeurLigne, nbLignes);
   return v4p ;
 }
-int v4pInit() {
-  v4pContextCree() ;
-  return success ;
-}
 
 int v4pContexteChange(V4pContext p) {
   v4p = p ;
+}
+
+int v4pInit() {
+  v4pContexteChange(v4pContextCree()) ;
+  return success ;
 }
 
 // crée un poly

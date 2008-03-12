@@ -160,10 +160,11 @@ Boolean iterateApp() {
         }
         if (sel == bAddition) {
           if (currentPoint) {
-             v4pPolygonTransform(spots[spotNb],
-               xs - currentPoint->x,
-               ys - currentPoint->y,
-               0, 0);
+             if (spotNb < 64)
+               v4pPolygonTransform(spots[spotNb],
+                 xs - currentPoint->x,
+                 ys - currentPoint->y,
+                 0, 0);
              v4pPolygonMovePoint(currentPolygon, currentPoint, xs, ys);
           }
         } else if (sel==bGrid && currentPoint) {
@@ -214,7 +215,7 @@ Boolean iterateApp() {
            
            while (spotNb) {
              spotNb--;
-             if (spotNb < 20) v4pListDelPolygon(&scene, spots[spotNb]);
+             if (spotNb <64) v4pListDelPolygon(&scene, spots[spotNb]);
            }
          }
          spotNb = 0;
@@ -242,7 +243,7 @@ Boolean iterateApp() {
              v4pPolygonConcrete(currentPolygon, 0);
            }
            currentPoint = v4pPolygonAddPoint(currentPolygon, xs, ys);
-           if (spotNb < 20) {
+           if (spotNb < 64) {
              spots[spotNb] = v4pListAddPolygon(&scene,standard, currentColor,14);
              v4pPolygonRect(spots[spotNb], xs - 1 , ys - 1 , xs + 1 , ys + 1);
            }

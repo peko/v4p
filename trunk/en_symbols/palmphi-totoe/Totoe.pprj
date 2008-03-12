@@ -10,11 +10,11 @@ Props data
 >>TOTOE:100
     AppID=TOTE
     Version=1.0
-    ExtraObjFiles=/usr/src/v4p/english_code/libv4p.a
+    ExtraObjFiles=/usr/src/v4p/en_symbols/libv4p.a
     ExtraIncludes="v4pi.h"
     ExtraResources=
     ExtraLibraries=
-    IncludePath=/usr/src/v4p/english_code
+    IncludePath=/usr/src/v4p/en_symbols
     MultiSegment=False
     TestLIBC=False
     Category=
