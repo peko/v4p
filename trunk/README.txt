@@ -16,21 +16,19 @@ Beside rendering vectors scene, V4P will help you find collides.
 
 =How to use it=
 
-V4P is a set of 2 C files and their parented header files.
+V4P is a set of C files and their related header files.
 
 They can be compiled and linked into some library or directly added to your own project.
 
 Warning: provided makefiles deal with Palm OS 4 gcc based compilation.
 
-Two Palmphi projects are provided as well. Palmphi is a simple IDE for Windows to simplify
-the creation of applications for Palm devices. See: http://www.digital-kingdoms.net/palmphi/
+Two Palmphi projects are provided as well. Palmphi is an IDE running on Windows with cygwin which simplifies the authoring of Palm-OS based applications. See: http://www.digital-kingdoms.net/palmphi/
 
 * palmphi-toto : A V4P based top-view car game. A work in progress.
 
 * palmphi-totoe : A V4P based picture editor. Draw layered polygons based picture!
 
-To compile these 2 projects, put the V4P distribution in the directory /usr/src/v4p/
-of your cygwin files tree. Compile V4P sources before the application ones.
+To compile these 2 projects, put the content of "src" directory into the path /usr/src/v4p/ of your cygwin distribution. Compile V4P sources before the application ones.
 
 =Design Introduction=
 
@@ -67,8 +65,9 @@ V4P has been developped and tested on a very old Sony Clie PDA with Palm OS 4 gc
 
 # use V4P to design a Flash-like technology
 
-# use V4P as a basis for a full animated GUI stack
+# that is, write V4P bindings to known languages
 
+# use V4P as a basis for a full animated GUI stack
 
 ==various improvements==
 
