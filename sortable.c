@@ -73,7 +73,7 @@ List ListMerge(List previous, List after) {
 List ListGetNextRise(List list) {
    List last, l ;
 
-   if (!l) return NULL ;
+   if (!list) return NULL ;
 
    // sorting break search loop
    for (last = l = list, l = ListNext(l) ;
@@ -105,9 +105,9 @@ static List down(List list, int level, List *remaining) {
      *remaining = ListGetNextRise(list) ;
      return list ;
      }
-
-  l1 = down(list, level-1, &sub_remaining) ;
-  l2 = down(sub_remaining, level-1, remaining) ;
+  level--;
+  l1 = down(list, level, &sub_remaining) ;
+  l2 = down(sub_remaining, level, remaining) ;
   return ListMerge(l1, l2) ;
 }
 

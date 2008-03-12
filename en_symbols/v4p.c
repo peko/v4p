@@ -566,7 +566,7 @@ Boolean v4pIsVisible(PolygonP p) {
 PolygonP v4pPolygonBuildActiveEdgeList(PolygonP p) {
    PointP sa, sb, s1;
    Boolean loop, end;
-   int dx, dy;
+   int dx, dy, q, r;
    Coord sx0, sx1, sy0, sy1;
    ActiveEdgeP b ;
 
@@ -594,8 +594,6 @@ PolygonP v4pPolygonBuildActiveEdgeList(PolygonP p) {
                sx1 = sa->x;
                sy1 = sa->y;
             }
-            dx = sx1 - sx0;
-            dy = sy1 - sy0;
 
             if (!(p->props & relative)) {
                 sx0 -= v4p->xvu0;
@@ -609,10 +607,13 @@ PolygonP v4pPolygonBuildActiveEdgeList(PolygonP p) {
                    sy1 = sy1 * v4p->divyvu + (sy1 * v4p->modyvu) / v4p->dyvu;
                }
             }
-
+            dx = sx1 - sx0;
+            dy = sy1 - sy0;
+            q = dx / dy ;
+            r = dx > 0 ? dx % dy : (-dx) % dy ;
             // troncage haut
             if (sy0 < 0 && dy > 0) {
-               sx0 -= sy0 * (dx / dy) + sy0 * (dx % dy) / dy;
+               sx0 -= sy0 * q + sy0 * (dx > 0 ? r : -r) / dy;
                sy0 = 0;
             }
 
@@ -622,12 +623,11 @@ PolygonP v4pPolygonBuildActiveEdgeList(PolygonP p) {
             b->x1 = sx1;
             b->y1 = sy1;
             if (dy > 0) {
-               b->o1 = dx / dy;
+               b->o1 = q ;
+               b->r1 = r ;
                if (dx > 0) {
-                  b->r1 = dx % dy;
                   b->o2 = b->o1 + 1;
                } else {
-                  b->r1 = (-dx) % dy;
                   b->o2 = b->o1 - 1;
                }
                b->r2 = b->r1 - dy;

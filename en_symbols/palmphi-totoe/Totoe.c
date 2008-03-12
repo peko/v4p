@@ -1,5 +1,5 @@
 #include <PalmOS.h>
-#include <C:\cygwin\usr\src\v4p\english_code\palmphi-totoe\Totoe.h>
+#include <C:\cygwin\usr\src\v4p\en_symbols\palmphi-totoe\Totoe.h>
 #include "v4pi.h"
 
 #define EVENT int
@@ -227,7 +227,7 @@ while(!StopEvent)
                                                                                 #line 12 "TotoF.c"
     iterateApp() ;
                                                                                 #line 13 "TotoF.c"
-Application_ProcessMessages(3);
+Application_ProcessMessages(1);
                                                                                 #line 14 "TotoF.c"
   }
                                                                                 #line 15 "TotoF.c"
@@ -652,81 +652,81 @@ Boolean iterateApp() {
                                                                                 #line 162 "editor.c"
           if (currentPoint) {
                                                                                 #line 163 "editor.c"
-
+             if (spotNb < 64)
                                                                                 #line 164 "editor.c"
 
                                                                                 #line 165 "editor.c"
 
                                                                                 #line 166 "editor.c"
-             v4pPolygonTransform(spots[spotNb],               xs - currentPoint->x,               ys - currentPoint->y,               0, 0);
-                                                                                #line 167 "editor.c"
-             v4pPolygonMovePoint(currentPolygon, currentPoint, xs, ys);
-                                                                                #line 168 "editor.c"
-          }
-                                                                                #line 169 "editor.c"
-        } else if (sel==bGrid && currentPoint) {
-                                                                                #line 170 "editor.c"
-          v4pPolygonMovePoint(focus, currentPoint, xs, ys);
-                                                                                #line 171 "editor.c"
-          
-                                                                                #line 172 "editor.c"
-        } else if (collides[2].q > 0) {
-                                                                                #line 173 "editor.c"
-          if (sel == bScroll) {
-                                                                                #line 174 "editor.c"
-            focus = collides[2].poly;
-                                                                                #line 175 "editor.c"
-            x0 = xs;
-                                                                                #line 176 "editor.c"
-            y0 = ys;
-                                                                                #line 177 "editor.c"
-          } else if (sel == bGrid) {
-                                                                                #line 178 "editor.c"
-            if (!focus) {
-                                                                                #line 179 "editor.c"
-              focus = collides[2].poly;
-                                                                                #line 180 "editor.c"
-              s = v4pPolygonGetPoints(focus);
-                                                                                #line 181 "editor.c"
-              mindist = gaugeDist(s->x - x, s->y - y);
-                                                                                #line 182 "editor.c"
-              currentPoint = s;
-                                                                                #line 183 "editor.c"
-              s = s->next;
-                                                                                #line 184 "editor.c"
-              while (s) {
-                                                                                #line 185 "editor.c"
-                dist = gaugeDist(s->x - x, s->y - y);
-                                                                                #line 186 "editor.c"
-                if (dist < mindist) {
-                                                                                #line 187 "editor.c"
-                  mindist = dist;
-                                                                                #line 188 "editor.c"
-                  currentPoint = s;
-                                                                                #line 189 "editor.c"
-                }
-                                                                                #line 190 "editor.c"
-                s = s->next;
-                                                                                #line 191 "editor.c"
-              }
-                                                                                #line 192 "editor.c"
-            }
-                                                                                #line 193 "editor.c"
-          } else
-                                                                                #line 194 "editor.c"
-            focus =collides[2].poly;
-                                                                                #line 195 "editor.c"
-        } else if (sel == bScroll) { 
-                                                                                #line 196 "editor.c"
-          if (focus) {
-                                                                                #line 197 "editor.c"
-            v4pPolygonTransform(focus, xs - x0, ys - y0, 0, 0);
-                                                                                #line 198 "editor.c"
-            x0 = xs; y0 = ys;
-                                                                                #line 199 "editor.c"
-          } else {
-                                                                                #line 200 "editor.c"
 
+                                                                                #line 167 "editor.c"
+               v4pPolygonTransform(spots[spotNb],                 xs - currentPoint->x,                 ys - currentPoint->y,                 0, 0);
+                                                                                #line 168 "editor.c"
+             v4pPolygonMovePoint(currentPolygon, currentPoint, xs, ys);
+                                                                                #line 169 "editor.c"
+          }
+                                                                                #line 170 "editor.c"
+        } else if (sel==bGrid && currentPoint) {
+                                                                                #line 171 "editor.c"
+          v4pPolygonMovePoint(focus, currentPoint, xs, ys);
+                                                                                #line 172 "editor.c"
+          
+                                                                                #line 173 "editor.c"
+        } else if (collides[2].q > 0) {
+                                                                                #line 174 "editor.c"
+          if (sel == bScroll) {
+                                                                                #line 175 "editor.c"
+            focus = collides[2].poly;
+                                                                                #line 176 "editor.c"
+            x0 = xs;
+                                                                                #line 177 "editor.c"
+            y0 = ys;
+                                                                                #line 178 "editor.c"
+          } else if (sel == bGrid) {
+                                                                                #line 179 "editor.c"
+            if (!focus) {
+                                                                                #line 180 "editor.c"
+              focus = collides[2].poly;
+                                                                                #line 181 "editor.c"
+              s = v4pPolygonGetPoints(focus);
+                                                                                #line 182 "editor.c"
+              mindist = gaugeDist(s->x - x, s->y - y);
+                                                                                #line 183 "editor.c"
+              currentPoint = s;
+                                                                                #line 184 "editor.c"
+              s = s->next;
+                                                                                #line 185 "editor.c"
+              while (s) {
+                                                                                #line 186 "editor.c"
+                dist = gaugeDist(s->x - x, s->y - y);
+                                                                                #line 187 "editor.c"
+                if (dist < mindist) {
+                                                                                #line 188 "editor.c"
+                  mindist = dist;
+                                                                                #line 189 "editor.c"
+                  currentPoint = s;
+                                                                                #line 190 "editor.c"
+                }
+                                                                                #line 191 "editor.c"
+                s = s->next;
+                                                                                #line 192 "editor.c"
+              }
+                                                                                #line 193 "editor.c"
+            }
+                                                                                #line 194 "editor.c"
+          } else
+                                                                                #line 195 "editor.c"
+            focus =collides[2].poly;
+                                                                                #line 196 "editor.c"
+        } else if (sel == bScroll) { 
+                                                                                #line 197 "editor.c"
+          if (focus) {
+                                                                                #line 198 "editor.c"
+            v4pPolygonTransform(focus, xs - x0, ys - y0, 0, 0);
+                                                                                #line 199 "editor.c"
+            x0 = xs; y0 = ys;
+                                                                                #line 200 "editor.c"
+          } else {
                                                                                 #line 201 "editor.c"
 
                                                                                 #line 202 "editor.c"
@@ -734,176 +734,178 @@ Boolean iterateApp() {
                                                                                 #line 203 "editor.c"
 
                                                                                 #line 204 "editor.c"
-            v4pSetView(              align(xvu + xpen - x0),              align(yvu + ypen - y0),              align(xvu + xpen - x0) + lvu,              align(yvu + ypen - y0) + lvu);
-                                                                                #line 205 "editor.c"
-          }
-                                                                                #line 206 "editor.c"
-        }
-                                                                                #line 207 "editor.c"
-      } else { 
-                                                                                #line 208 "editor.c"
-        if (xpen > lineWidth - 10 && ypen < yButton) { 
-                                                                                #line 209 "editor.c"
-         selPrec = sel;
-                                                                                #line 210 "editor.c"
-         ajusteSel(ypen / 10);
-                                                                                #line 211 "editor.c"
-         if (selPrec == bAddition) {
-                                                                                #line 212 "editor.c"
-           if (currentPolygon && spotNb <= 2)
-                                                                                #line 213 "editor.c"
-             v4pListDelPolygon(&scene, currentPolygon);
-                                                                                #line 214 "editor.c"
-           
-                                                                                #line 215 "editor.c"
-           while (spotNb) {
-                                                                                #line 216 "editor.c"
-             spotNb--;
-                                                                                #line 217 "editor.c"
-             if (spotNb < 20) v4pListDelPolygon(&scene, spots[spotNb]);
-                                                                                #line 218 "editor.c"
-           }
-                                                                                #line 219 "editor.c"
-         }
-                                                                                #line 220 "editor.c"
-         spotNb = 0;
-                                                                                #line 221 "editor.c"
-         focus = NULL;
-                                                                                #line 222 "editor.c"
-         currentPolygon = NULL;
-                                                                                #line 223 "editor.c"
-         currentPoint = NULL;
-                                                                                #line 224 "editor.c"
-         x0 = xpen;
-                                                                                #line 225 "editor.c"
-         y0 = ypen;
-                                                                                #line 226 "editor.c"
-         if (sel == bCol) {
-                                                                                #line 227 "editor.c"
-           v4pPolygonEnable(pCol);
-                                                                                #line 228 "editor.c"
-         } else if (sel == bScroll) {
-                                                                                #line 229 "editor.c"
-         } else if (sel == bLayer) {
-                                                                                #line 230 "editor.c"
-           v4pPolygonEnable(pLayer);
-                                                                                #line 231 "editor.c"
-           z0 = currentZ;
-                                                                                #line 232 "editor.c"
-         } else if (sel == bGrid) {
-                                                                                #line 233 "editor.c"
-           v4pPolygonEnable(pGrid);
-                                                                                #line 234 "editor.c"
-           stepGrid0 = stepGrid;
-                                                                                #line 235 "editor.c"
-           y0 = 4 * (ypen - floorLog2(stepGrid));
-                                                                                #line 236 "editor.c"
-         }
-                                                                                #line 237 "editor.c"
-         guiStatus = push;
-                                                                                #line 238 "editor.c"
-        } else { 
-                                                                                #line 239 "editor.c"
-         if (sel == bAddition) {
-                                                                                #line 240 "editor.c"
-           if (spotNb == 0) {
-                                                                                #line 241 "editor.c"
-             currentPolygon = v4pListAddPolygon(&scene,standard, currentColor, currentZ);
-                                                                                #line 242 "editor.c"
-             v4pPolygonConcrete(currentPolygon, 0);
-                                                                                #line 243 "editor.c"
-           }
-                                                                                #line 244 "editor.c"
-           currentPoint = v4pPolygonAddPoint(currentPolygon, xs, ys);
-                                                                                #line 245 "editor.c"
-           if (spotNb < 20) {
-                                                                                #line 246 "editor.c"
-             spots[spotNb] = v4pListAddPolygon(&scene,standard, currentColor,14);
-                                                                                #line 247 "editor.c"
-             v4pPolygonRect(spots[spotNb], xs - 1 , ys - 1 , xs + 1 , ys + 1);
-                                                                                #line 248 "editor.c"
-           }
-                                                                                #line 249 "editor.c"
-         }
-                                                                                #line 250 "editor.c"
-         brush = v4pListAddPolygon(&scene, relative, black, 15);
-                                                                                #line 251 "editor.c"
-         v4pPolygonRect(brush, xpen - 1 , ypen - 1 , xpen + 1 , ypen + 1);
-                                                                                #line 252 "editor.c"
-         v4pPolygonConcrete(brush, 2);
-                                                                                #line 253 "editor.c"
-         x0 = xpen;
-                                                                                #line 254 "editor.c"
-         y0 = ypen;
-                                                                                #line 255 "editor.c"
-         guiStatus = edit;
-                                                                                #line 256 "editor.c"
-       }
-                                                                                #line 257 "editor.c"
-     }
-                                                                                #line 258 "editor.c"
-    } else { 
-                                                                                #line 259 "editor.c"
-      if (guiStatus == push) { 
-                                                                                #line 260 "editor.c"
-       v4pPolygonDisable(pCol);
-                                                                                #line 261 "editor.c"
-       if (sel == bCol) v4pPolygonSetColor(buttons[bCol], (currentColor = nextColor));
-                                                                                #line 262 "editor.c"
-       if (sel == bLayer) v4pPolygonDisable(pLayer);
-                                                                                #line 263 "editor.c"
-       if (sel == bGrid) v4pPolygonDisable(pGrid);
-                                                                                #line 264 "editor.c"
-      } else if (guiStatus==edit) { 
-                                                                                #line 265 "editor.c"
-       if (sel == bAddition) {
-                                                                                #line 266 "editor.c"
-         spotNb++;
-                                                                                #line 267 "editor.c"
-       } else if (focus) {
-                                                                                #line 268 "editor.c"
-         if (sel == bCol) v4pPolygonSetColor(focus, currentColor);
-                                                                                #line 269 "editor.c"
-         if (sel == bDel) v4pListDelPolygon(&scene, focus);
-                                                                                #line 270 "editor.c"
-         if (sel == bLayer) v4pPolygonTransform(focus, 0, 0, 0, currentZ - v4pPolygonGetZ(focus));
-                                                                                #line 271 "editor.c"
-         focus = NULL;
-                                                                                #line 272 "editor.c"
-         currentPoint = NULL;
-                                                                                #line 273 "editor.c"
-       } else if (sel == bScroll && !focus) {
-                                                                                #line 274 "editor.c"
-         xvu = align(xvu + (xpen - x0));
-                                                                                #line 275 "editor.c"
-         yvu = align(yvu + (ypen - y0));
-                                                                                #line 276 "editor.c"
-         v4pSetView(xvu, yvu, xvu + lvu, yvu + lvu);
-                                                                                #line 277 "editor.c"
-       }
-                                                                                #line 278 "editor.c"
-       if (brush) {
-                                                                                #line 279 "editor.c"
-         v4pListDelPolygon(&scene, brush);
-                                                                                #line 280 "editor.c"
-         brush = NULL;
-                                                                                #line 281 "editor.c"
-       }
-                                                                                #line 282 "editor.c"
-      }
-                                                                                #line 283 "editor.c"
-    guiStatus = idle;
-                                                                                #line 284 "editor.c"
-  }
-                                                                                #line 285 "editor.c"
-  pen1 = pen;
-                                                                                #line 286 "editor.c"
- }
-                                                                                #line 287 "editor.c"
- return success ;
-                                                                                #line 288 "editor.c"
-}
-                                                                                #line 289 "editor.c"
 
+                                                                                #line 205 "editor.c"
+            v4pSetView(              align(xvu + xpen - x0),              align(yvu + ypen - y0),              align(xvu + xpen - x0) + lvu,              align(yvu + ypen - y0) + lvu);
+                                                                                #line 206 "editor.c"
+          }
+                                                                                #line 207 "editor.c"
+        }
+                                                                                #line 208 "editor.c"
+      } else { 
+                                                                                #line 209 "editor.c"
+        if (xpen > lineWidth - 10 && ypen < yButton) { 
+                                                                                #line 210 "editor.c"
+         selPrec = sel;
+                                                                                #line 211 "editor.c"
+         ajusteSel(ypen / 10);
+                                                                                #line 212 "editor.c"
+         if (selPrec == bAddition) {
+                                                                                #line 213 "editor.c"
+           if (currentPolygon && spotNb <= 2)
+                                                                                #line 214 "editor.c"
+             v4pListDelPolygon(&scene, currentPolygon);
+                                                                                #line 215 "editor.c"
+           
+                                                                                #line 216 "editor.c"
+           while (spotNb) {
+                                                                                #line 217 "editor.c"
+             spotNb--;
+                                                                                #line 218 "editor.c"
+             if (spotNb <64) v4pListDelPolygon(&scene, spots[spotNb]);
+                                                                                #line 219 "editor.c"
+           }
+                                                                                #line 220 "editor.c"
+         }
+                                                                                #line 221 "editor.c"
+         spotNb = 0;
+                                                                                #line 222 "editor.c"
+         focus = NULL;
+                                                                                #line 223 "editor.c"
+         currentPolygon = NULL;
+                                                                                #line 224 "editor.c"
+         currentPoint = NULL;
+                                                                                #line 225 "editor.c"
+         x0 = xpen;
+                                                                                #line 226 "editor.c"
+         y0 = ypen;
+                                                                                #line 227 "editor.c"
+         if (sel == bCol) {
+                                                                                #line 228 "editor.c"
+           v4pPolygonEnable(pCol);
+                                                                                #line 229 "editor.c"
+         } else if (sel == bScroll) {
+                                                                                #line 230 "editor.c"
+         } else if (sel == bLayer) {
+                                                                                #line 231 "editor.c"
+           v4pPolygonEnable(pLayer);
+                                                                                #line 232 "editor.c"
+           z0 = currentZ;
+                                                                                #line 233 "editor.c"
+         } else if (sel == bGrid) {
+                                                                                #line 234 "editor.c"
+           v4pPolygonEnable(pGrid);
+                                                                                #line 235 "editor.c"
+           stepGrid0 = stepGrid;
+                                                                                #line 236 "editor.c"
+           y0 = 4 * (ypen - floorLog2(stepGrid));
+                                                                                #line 237 "editor.c"
+         }
+                                                                                #line 238 "editor.c"
+         guiStatus = push;
+                                                                                #line 239 "editor.c"
+        } else { 
+                                                                                #line 240 "editor.c"
+         if (sel == bAddition) {
+                                                                                #line 241 "editor.c"
+           if (spotNb == 0) {
+                                                                                #line 242 "editor.c"
+             currentPolygon = v4pListAddPolygon(&scene,standard, currentColor, currentZ);
+                                                                                #line 243 "editor.c"
+             v4pPolygonConcrete(currentPolygon, 0);
+                                                                                #line 244 "editor.c"
+           }
+                                                                                #line 245 "editor.c"
+           currentPoint = v4pPolygonAddPoint(currentPolygon, xs, ys);
+                                                                                #line 246 "editor.c"
+           if (spotNb < 64) {
+                                                                                #line 247 "editor.c"
+             spots[spotNb] = v4pListAddPolygon(&scene,standard, currentColor,14);
+                                                                                #line 248 "editor.c"
+             v4pPolygonRect(spots[spotNb], xs - 1 , ys - 1 , xs + 1 , ys + 1);
+                                                                                #line 249 "editor.c"
+           }
+                                                                                #line 250 "editor.c"
+         }
+                                                                                #line 251 "editor.c"
+         brush = v4pListAddPolygon(&scene, relative, black, 15);
+                                                                                #line 252 "editor.c"
+         v4pPolygonRect(brush, xpen - 1 , ypen - 1 , xpen + 1 , ypen + 1);
+                                                                                #line 253 "editor.c"
+         v4pPolygonConcrete(brush, 2);
+                                                                                #line 254 "editor.c"
+         x0 = xpen;
+                                                                                #line 255 "editor.c"
+         y0 = ypen;
+                                                                                #line 256 "editor.c"
+         guiStatus = edit;
+                                                                                #line 257 "editor.c"
+       }
+                                                                                #line 258 "editor.c"
+     }
+                                                                                #line 259 "editor.c"
+    } else { 
+                                                                                #line 260 "editor.c"
+      if (guiStatus == push) { 
+                                                                                #line 261 "editor.c"
+       v4pPolygonDisable(pCol);
+                                                                                #line 262 "editor.c"
+       if (sel == bCol) v4pPolygonSetColor(buttons[bCol], (currentColor = nextColor));
+                                                                                #line 263 "editor.c"
+       if (sel == bLayer) v4pPolygonDisable(pLayer);
+                                                                                #line 264 "editor.c"
+       if (sel == bGrid) v4pPolygonDisable(pGrid);
+                                                                                #line 265 "editor.c"
+      } else if (guiStatus==edit) { 
+                                                                                #line 266 "editor.c"
+       if (sel == bAddition) {
+                                                                                #line 267 "editor.c"
+         spotNb++;
+                                                                                #line 268 "editor.c"
+       } else if (focus) {
+                                                                                #line 269 "editor.c"
+         if (sel == bCol) v4pPolygonSetColor(focus, currentColor);
+                                                                                #line 270 "editor.c"
+         if (sel == bDel) v4pListDelPolygon(&scene, focus);
+                                                                                #line 271 "editor.c"
+         if (sel == bLayer) v4pPolygonTransform(focus, 0, 0, 0, currentZ - v4pPolygonGetZ(focus));
+                                                                                #line 272 "editor.c"
+         focus = NULL;
+                                                                                #line 273 "editor.c"
+         currentPoint = NULL;
+                                                                                #line 274 "editor.c"
+       } else if (sel == bScroll && !focus) {
+                                                                                #line 275 "editor.c"
+         xvu = align(xvu + (xpen - x0));
+                                                                                #line 276 "editor.c"
+         yvu = align(yvu + (ypen - y0));
+                                                                                #line 277 "editor.c"
+         v4pSetView(xvu, yvu, xvu + lvu, yvu + lvu);
+                                                                                #line 278 "editor.c"
+       }
+                                                                                #line 279 "editor.c"
+       if (brush) {
+                                                                                #line 280 "editor.c"
+         v4pListDelPolygon(&scene, brush);
+                                                                                #line 281 "editor.c"
+         brush = NULL;
+                                                                                #line 282 "editor.c"
+       }
+                                                                                #line 283 "editor.c"
+      }
+                                                                                #line 284 "editor.c"
+    guiStatus = idle;
+                                                                                #line 285 "editor.c"
+  }
+                                                                                #line 286 "editor.c"
+  pen1 = pen;
+                                                                                #line 287 "editor.c"
+ }
+                                                                                #line 288 "editor.c"
+ return success ;
+                                                                                #line 289 "editor.c"
+}
                                                                                 #line 290 "editor.c"
+
+                                                                                #line 291 "editor.c"
 
