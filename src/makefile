@@ -1,4 +1,9 @@
-all: libv4p.a
+all: install
+
+install: libv4p.a
+	-mkdir -p /usr/include/v4p/
+	cp libv4p.a /usr/lib/
+	cp *.h /usr/include/v4p/
 
 clean:
 	-rm *.a *.o

@@ -1,5 +1,5 @@
 #include <PalmOS.h>
-#include <C:\cygwin\usr\src\v4p\en_symbols\palmphi-totoe\Totoe.h>
+#include <C:\cygwin\usr\src\v4p\src\palmphi-totoe\Totoe.h>
 #include "v4pi.h"
 
 #define EVENT int
