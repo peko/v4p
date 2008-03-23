@@ -40,7 +40,11 @@ typedef UInt16 Flags ;
 
 #define absolute (Flags)0
 #define relative (Flags)16 // view (not scene) related coordinates
-#define disabled (Flags)32 // wont be displayed for now
+
+// RO flags
+#define V4P_DISABLED (Flags)32 // wont be displayed for now
+#define V4P_IN_DISABLED (Flags)64 // ancester disabled
+#define V4P_CHANGED (Flags)128 // something has changed
 
 typedef UInt16 ILayer ; // < 16
 typedef UInt16 ICollide ; // < 8
@@ -63,7 +67,7 @@ int  v4pInit() ;
 int  v4pSetView(Coord x0, Coord y0, Coord x1, Coord y1) ;
 void v4pViewToAbsolute(Coord x, Coord y, Coord *xa, Coord *ya) ;
 void v4pSetScene(PolygonP *scene) ;
-Boolean v4pAffiche() ;
+Boolean v4pRender() ;
 
 // v4pPolygon
 PolygonP v4pPolygonNew(PolygonProps t, Color col, ILayer pz) ;

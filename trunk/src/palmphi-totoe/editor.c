@@ -86,18 +86,25 @@ Boolean initApp() {
   //(-xvu,-yvu)=milieu écran
   pSel = v4pListAddPolygon(&scene, relative, black, 13);
   v4pPolygonRect(pSel, lineWidth - 11, 0 , lineWidth, 11);
-  pCol=v4pListAddPolygon(&scene, relative | disabled,black, 14);
+  
+  pCol=v4pListAddPolygon(&scene, relative,black, 14);
   v4pPolygonRect(pCol, -xvu - 20, -yvu - 20, -xvu + 20, -yvu + 20);
   pSelCol=v4pPolygonAddNewSub(pCol, relative, black, 15);
   v4pPolygonRect(pSelCol, -xvu - 18, -yvu - 18, -xvu + 18, -yvu + 18);
-  pLayer=v4pListAddPolygon(&scene, relative | disabled, black, 14);
+  v4pPolygonDisable(pCol);
+  
+  pLayer=v4pListAddPolygon(&scene, relative, black, 14);
   v4pPolygonRect(pLayer, -xvu - 3, -yvu - 17, -xvu + 3, -yvu + 17);
   pSelLayer=v4pPolygonAddNewSub(pLayer, relative, red, 15);
   v4pPolygonRect(pSelLayer, -xvu - 2, -yvu - 1, -xvu + 2, -yvu + 1);
-  pGrid=v4pListAddPolygon(&scene, relative | disabled, black, 14);
+  v4pPolygonDisable(pLayer);
+
+  pGrid=v4pListAddPolygon(&scene, relative, black, 14);
   v4pPolygonRect(pGrid, -xvu - 9, -yvu - 9, -xvu + 9, -yvu + 9);
   pSelGrid=v4pPolygonAddNewSub(pGrid, relative, red, 15);
   v4pPolygonRect(pSelGrid, -xvu - 2, -yvu - 2, -xvu + 2, -yvu + 2);
+  v4pPolygonDisable(pGrid);
+
   return success ;
 }
 
@@ -120,7 +127,7 @@ Boolean iterateApp() {
 
   if (true) {
     //v4pSetView(xvu,yvu,xvu+lvu,yvu+lvu);
-    v4pAffiche();
+    v4pRender();
     if (pen) {
       if (pen1) {
         xpen = (2 * xpen + xpen1) / 3;

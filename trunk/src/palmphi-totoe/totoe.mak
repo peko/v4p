@@ -24,7 +24,7 @@ clean:
 	rm -f Totoe.ro Totoe Totoe.o
 
 custom1:
-	make -C /usr/src/v4p
+	make -C /usr/src/v4p/src
 
 custom2:
 	echo Add your own commands by editing the file makefile.ppc

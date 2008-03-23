@@ -13,7 +13,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+#define NEW_DEAL
+#define NEW_DEAL_2
 
 /* Abbrevs
 ** display size = rectangle lineNb*lineWidth
@@ -62,7 +63,7 @@ typedef struct poly_s {
  PolygonP next ; // subs list link
  Coord minx,maxx,miny,maxy; // minimal surrounding rectangle
  Coord minyv, maxyv ;
- ActiveEdgeP ActiveEdge1 ; // ActiveEdges list
+ List ActiveEdge1 ; // ActiveEdges list
 } Polygon ;
 
 // type ActiveEdge
@@ -70,7 +71,6 @@ typedef struct ba_s {
  Coord x0, y0, x1, y1 ; // vector
  PolygonP p ; // polygone
  Coord x, o1, o2, s, h, r1, r2 ; // bresenham: offsets, sums, lineNb, remainings
- ActiveEdgeP next ;
 } ActiveEdge ;
 
 // contexte V4P
@@ -80,13 +80,27 @@ typedef struct v4pContext_s {
  int debug1 ;
  Coord   xvu0,yvu0,xvu1,yvu1 ; // view coordinates
  QuickHeap pointHeap, polygonHeap, activeEdgeHeap ;
+#ifndef NEW_DEAL_2
  List    openedPolygonsList, openablePolygonsList ; // polygons lists
- List    activeEdgeXSortedList, activeEdgeYSortedList ; // ActiveEdge lists
+#endif
+ List    openedAEList ; // ActiveEdge lists
+#ifdef NEW_DEAL
+ List    relativeOpenableAEList, absoluteOpenableAEList ; // ActiveEdge lists
+#ifdef NEW_DEAL_2
+ List    currentRelativeOpenableAE, currentAbsoluteOpenableAE ; // ActiveEdge lists
+#endif
+#else
+ List    openableAEList ;
+#endif
  Coord   dxvu,dyvu, // view related data
   divxvu,modxvu,divxvub,modxvub,
   divyvu,modyvu,divyvub,modyvub;
  Boolean scaling; // do polygons need to be scaled?
+ UInt32 changes;
 } V4pContextS, *V4pContext ;
+#define V4P_CHANGED_ABSOLUTE 1
+#define V4P_CHANGED_RELATIVE 2
+#define V4P_CHANGED_VIEW 4
 
 V4pContext v4p = NULL ; // current (selected) v4p Context
 
@@ -120,7 +134,12 @@ V4pContext v4pContextNew() {
   v4p->pointHeap = QuickHeapNewFor(Point) ;
   v4p->polygonHeap = QuickHeapNewFor(Polygon) ;
   v4p->activeEdgeHeap = QuickHeapNewFor(ActiveEdge) ;
+#ifdef NEW_DEAL_2
+   v4p->absoluteOpenableAEList = NULL ; // vertical sort
+   v4p->relativeOpenableAEList = NULL ; // vertical sort
+#endif
   v4pSetView(0,0, lineWidth, lineNb);
+  v4p->changes = 0 ;
   return v4p ;
 }
 
@@ -137,7 +156,7 @@ int v4pInit() {
 // create a polygon
 PolygonP v4pPolygonNew(PolygonProps t, Color col, ILayer z) {
   PolygonP p = QuickHeapAlloc(v4p->polygonHeap) ;
-  p->props = t;
+  p->props = t & ~V4P_CHANGED;
   p->z = z;
   p->i = (ICollide)-1;
   p->color = col;
@@ -145,16 +164,23 @@ PolygonP v4pPolygonNew(PolygonProps t, Color col, ILayer z) {
   p->sub1 = NULL;
   p->next = NULL;
   p->miny = ~0; // miny = too much => limits to be computed
+  p->ActiveEdge1 = NULL ;
   return p;
 }
 
+#define v4pPolygonChanged(P) ((P)->props|=V4P_CHANGED)
+
+PolygonP v4pPolygonDelActiveEdges(PolygonP p);
+
 // delete a poly (including its points and subs)
 int v4pPolygonDel(PolygonP p) {
+ v4pPolygonDelActiveEdges(p) ;
  while (p->point1) v4pPolygonDelPoint(p,p->point1);
  while (p->sub1) v4pPolygonDelSub(p,p->sub1);
  QuickHeapFree(v4p->polygonHeap,p);
  return success ;
 }
+
 
 // Add a polygon to a list linked by the 'next' pointer
 PolygonP v4pPolygonIntoList(PolygonP p, PolygonP* list) {
@@ -176,15 +202,53 @@ Boolean v4pPolygonOutOfList(PolygonP p, PolygonP* list) {
       ppl = pl;
       pl = pl->next;
     }
-    if (!pl) return (v4pErrorCallBack("poly perdu"), failure) ;
+    if (!pl) return (v4pErrorCallBack("polygon lost"), failure) ;
     ppl->next = p->next;
   }
   p->next=NULL;
   return success ;
 }
 
+
+static v4pPolygonNotMoreInDisabled(PolygonP p) {
+    v4pPolygonRemoveProp(p, V4P_IN_DISABLED) ;
+    if (p->next)
+      v4pPolygonNotMoreInDisabled(p->next) ;
+    if (p->sub1 && !(p->props & V4P_DISABLED))
+      v4pPolygonNotMoreInDisabled(p->sub1) ;
+}
+
+PolygonProps v4pPolygonEnable(PolygonP p) {
+   if (!(p->props & V4P_DISABLED))
+      return p->props ;
+
+   if (p->sub1 && !(p->props & V4P_IN_DISABLED))
+      v4pPolygonNotMoreInDisabled(p->sub1) ;
+
+   return v4pPolygonRemoveProp(p, V4P_DISABLED) ;
+}
+
+static v4pPolygonInDisabled(PolygonP p) {
+    v4pPolygonPutProp(p, V4P_IN_DISABLED) ;
+    if (p->next)
+      v4pPolygonInDisabled(p->next) ;
+    if (p->sub1)
+      v4pPolygonInDisabled(p->sub1) ;
+}
+
+PolygonProps v4pPolygonDisable(PolygonP p) {
+   if (p->props & V4P_DISABLED)
+      return p->props ;
+   if (p->sub1)
+      v4pPolygonInDisabled(p->sub1) ;
+   return v4pPolygonPutProp(p, V4P_DISABLED) ;
+}
+
+
 // Add a polygon to an other polygon subs list
 PolygonP v4pPolygonAddSub(PolygonP parent, PolygonP p) {
+  if (parent->props & (V4P_DISABLED | V4P_IN_DISABLED))
+      v4pPolygonInDisabled(p) ;
   return v4pPolygonIntoList(p, &parent->sub1);
 }
 
@@ -210,11 +274,13 @@ Boolean v4pPolygonDelSub(PolygonP parent, PolygonP p) {
 
 // set a polygon property flag
 PolygonProps v4pPolygonPutProp(PolygonP p, PolygonProps i) {
+  v4pPolygonChanged(p) ;
   return (p->props |= i) ;
 }
 
 // remove a polygon property flag
 PolygonProps v4pPolygonRemoveProp(PolygonP p, PolygonProps i) {
+  v4pPolygonChanged(p) ;
   return (p->props &= ~i) ;
 }
 
@@ -234,7 +300,7 @@ PointP v4pPolygonAddPoint(PolygonP p, Coord x, Coord y) {
    }
    s->next = p->point1;
    p->point1 = s;
-   // p modif
+   v4pPolygonChanged(p) ;
    return s ;
 }
 
@@ -273,7 +339,7 @@ PointP v4pPolygonMovePoint(PolygonP p, PointP s, Coord x, Coord y) {
    }
    s->x = x;
    s->y = y;
-   // p modif
+   v4pPolygonChanged(p) ;
    return s ;
 }
 
@@ -302,7 +368,7 @@ PolygonP v4pPolygonDelPoint(PolygonP p, PointP s) {
 
    QuickHeapFree(v4p->pointHeap, s) ;
 
-   // p modif
+   v4pPolygonChanged(p) ;
    return p ;
 }
 
@@ -413,20 +479,28 @@ PolygonP v4pPolygonConcrete(PolygonP p, ICollide i) {
    return p ;
 }
 
-// create an ActiveEdge linked by 'next' to other polygon ActiveEdges
-ActiveEdgeP v4pEnableEdgeNew(PolygonP p) {
+// create an ActiveEdge of a polygon
+ActiveEdgeP v4pActiveEdgeNew(PolygonP p) {
    ActiveEdgeP b = QuickHeapAlloc(v4p->activeEdgeHeap) ;
    b->p = p;
-   b->next = p->ActiveEdge1;
-   return (p->ActiveEdge1 = b);
+   ListAddData(p->ActiveEdge1, b);
+   return b ;
 }
 
 // delete all ActiveEdges of a poly
 PolygonP v4pPolygonDelActiveEdges(PolygonP p) {
+   List l ;
    ActiveEdgeP b, s;
-   for (b = p->ActiveEdge1; b; b = s) {
-      s = b->next;
+   l = p->ActiveEdge1 ;
+   while (l) {
+      b = (ActiveEdgeP)ListData(l) ;
+#ifdef NEW_DEAL_2
+      // we remove it only while scanning openable AE list
+      b->p = NULL ;
+#else
       QuickHeapFree(v4p->activeEdgeHeap, b) ;
+#endif
+      l = ListFree(l) ;
    }
    p->ActiveEdge1 = NULL;
    return p;
@@ -464,7 +538,7 @@ PolygonP v4pRecPolygonTransformClone(Boolean estSub, PolygonP p, PolygonP c, Coo
       v4pRecPolygonTransformClone(true, p->next, c->next, dx, dy, dz);
    if (p->sub1)
       v4pRecPolygonTransformClone(true, p->sub1, c->sub1, dx, dy, dz);
-   // c modif
+   // c changed
    return c ;
 }
 
@@ -515,7 +589,7 @@ PolygonP v4pListAddClone(PolygonP *list, PolygonP p) {
 // compute the minimal rectangle surrounding a polygon
 PolygonP v4pPolygonComputeLimits(PolygonP p) {
    PointP s = p->point1;
-   if (!s) { // pas de point
+   if (!s) { // no point
       p->miny = ~0;
    } else {
       Coord minx, maxx, miny, maxy;
@@ -535,31 +609,63 @@ PolygonP v4pPolygonComputeLimits(PolygonP p) {
    return p;
 }
 
-// return false if polygon is located outside from the view area
+// transform relative coordinates into absolute (scene related) ones
+void v4pViewToAbsolute(Coord x, Coord y, Coord *xa, Coord *ya) {
+   *xa = v4p->xvu0 + x * v4p->divxvub + x * v4p->modxvub / lineWidth ;
+   *ya = v4p->yvu0 + y * v4p->divyvub + y * v4p->modyvub / lineNb ;
+}
+
+// transform absolute coordinates into relative (scene related) ones
+void v4pAbsoluteToView(Coord x, Coord y, Coord *xa, Coord *ya) {
+   x -= v4p->xvu0 ;
+   y -= v4p->yvu0 ;
+   if (v4p->scaling) {
+     *xa = x * v4p->divxvu + x * v4p->modxvu / v4p->dxvu ;
+     *ya = y * v4p->divyvu + y * v4p->modyvu / v4p->dyvu ;
+    } else {
+     *xa = x ;
+     *ya = y ;
+    }
+}
+
+// return false if polygon is located out of the view area
 Boolean v4pIsVisible(PolygonP p) {
    if (!p->point1)
       return false ;
-   if (p->miny == ~0) // bornes pas a jour
+   if (p->miny == ~0) // unknown limits
       v4pPolygonComputeLimits(p) ;
 
    { Coord minx = p->minx, maxx = p->maxx, miny = p->miny, maxy = p->maxy;
 
    if (!(p->props & relative)) {
-      minx -= v4p->xvu0;
-      miny -= v4p->yvu0;
-      maxx -= v4p->xvu0;
-      maxy -= v4p->yvu0;
-      if (v4p->scaling) {
-         minx = minx * v4p->divxvu + (minx * v4p->modxvu) / v4p->dxvu;
-         maxx = maxx * v4p->divxvu + (maxx * v4p->modxvu) / v4p->dxvu;
-         miny = miny * v4p->divyvu + (miny * v4p->modyvu) / v4p->dyvu;
-         maxy = maxy * v4p->divyvu + (maxy * v4p->modyvu) / v4p->dyvu;
-      }
+      v4pAbsoluteToView(minx, miny, &minx, &miny) ;
+      v4pAbsoluteToView(maxx, maxy, &maxx, &maxy) ;
    }
    p->minyv = miny ;
    p->maxyv = maxy ;
    return (maxx >= 0 && maxy >= 0 && minx < lineWidth && miny < lineNb) ;
    }
+}
+
+// clone a list
+List ListClone(List list) {
+   List l = list, clone = NULL, n = NULL, p = NULL ;
+
+   // sorting break search loop
+   if (l)
+      {
+      clone = n = ListNew() ;
+      ListSetData(n, ListData(l)) ;
+      for (l = ListNext(l) ; l ; l = ListNext(l))
+        {
+        p = n ;
+        n = ListNew() ;
+        if (p) ListSetNext(p, n) ;
+        ListSetData(n, ListData(l)) ;
+        }
+       ListSetNext(n, NULL) ;
+       }
+  return clone ;
 }
 
 // build a list of ActiveEdges for a given polygon
@@ -570,9 +676,28 @@ PolygonP v4pPolygonBuildActiveEdgeList(PolygonP p) {
    Coord sx0, sx1, sy0, sy1;
    ActiveEdgeP b ;
 
+#ifdef NEW_DEAL
+   if (!(p->props & V4P_CHANGED))
+      {
+#ifdef NEW_DEAL_2
+      // NOTHING TO DO
+#else
+      // ActiveEdge dans list y
+      if (p->props & relative)
+         v4p->relativeOpenableAEList = ListMerge(v4p->relativeOpenableAEList, ListClone(p->ActiveEdge1)) ;
+      else
+         v4p->absoluteOpenableAEList = ListMerge(v4p->absoluteOpenableAEList, ListClone(p->ActiveEdge1)) ;
+#endif
+      return p ;
+      }
+   v4p->changes |= (p->props & relative) ? V4P_CHANGED_RELATIVE : V4P_CHANGED_ABSOLUTE ;
+   if (p->ActiveEdge1)
+      // change => need to recompile AE
+      v4pPolygonDelActiveEdges(p) ;
+#endif
+   p->ActiveEdge1 = NULL ;
 
-   p->ActiveEdge1 = NULL;
-   if (!v4pIsVisible(p) || (p->props & invisible))
+   if (!v4pIsVisible(p) || (p->props & (V4P_DISABLED | V4P_IN_DISABLED | invisible)))
       return p;
 
    s1 = p->point1;
@@ -582,7 +707,11 @@ PolygonP v4pPolygonBuildActiveEdgeList(PolygonP p) {
       loop = false;
       end = false;
       while (!end) { // points
-         if (sa->y != sb->y) { // actif
+         if (sa->y != sb->y) { // active
+
+
+            b = v4pActiveEdgeNew(p) ;
+
             if (sa->y < sb->y) {
                sx0 = sa->x;
                sy0 = sa->y;
@@ -595,55 +724,50 @@ PolygonP v4pPolygonBuildActiveEdgeList(PolygonP p) {
                sy1 = sa->y;
             }
 
+#ifndef NEW_DEAL
             if (!(p->props & relative)) {
-                sx0 -= v4p->xvu0;
-                sy0 -= v4p->yvu0;
-                sx1 -= v4p->xvu0;
-                sy1 -= v4p->yvu0;
-                if (v4p->scaling) {
-                   sx0 = sx0 * v4p->divxvu + (sx0 * v4p->modxvu) / v4p->dxvu;
-                   sy0 = sy0 * v4p->divyvu + (sy0 * v4p->modyvu) / v4p->dyvu;
-                   sx1 = sx1 * v4p->divxvu + (sx1 * v4p->modxvu) / v4p->dxvu;
-                   sy1 = sy1 * v4p->divyvu + (sy1 * v4p->modyvu) / v4p->dyvu;
-               }
+                v4pAbsoluteToView(sx0, sy0, &sx0, &sy0) ;
+                v4pAbsoluteToView(sx1, sy1, &sx1, &sy1) ;
             }
-            dx = sx1 - sx0;
-            dy = sy1 - sy0;
-            q = dx / dy ;
-            r = dx > 0 ? dx % dy : (-dx) % dy ;
-            // troncage haut
-            if (sy0 < 0 && dy > 0) {
-               sx0 -= sy0 * q + sy0 * (dx > 0 ? r : -r) / dy;
-               sy0 = 0;
-            }
+#endif
 
-            b = v4pEnableEdgeNew(p) ;
             b->x0 = sx0;
             b->y0 = sy0;
             b->x1 = sx1;
             b->y1 = sy1;
-            if (dy > 0) {
-               b->o1 = q ;
-               b->r1 = r ;
-               if (dx > 0) {
-                  b->o2 = b->o1 + 1;
-               } else {
-                  b->o2 = b->o1 - 1;
-               }
-               b->r2 = b->r1 - dy;
-            } else {
-               b->o1 = b->o2 = b->r1 = b->r2 = 0 ;
-            }
 
+
+#ifdef NEW_DEAL
+         if (p->props & relative) {
+#endif
+            dx = sx1 - sx0;
+            dy = sy1 - sy0;
+            q = dx / dy ;
+            r = dx > 0 ? dx % dy : (-dx) % dy ;
+            b->o1 = q ;
+            b->o2 = b->o1 + (dx > 0 ? 1 : -1) ;
+            b->r1 = r ;
+            b->r2 = r - dy ;
+#ifdef NEW_DEAL
+          } // relative polygon
+#endif
+
+
+#ifdef NEW_DEAL
+            if (p->props & relative)
+               { ListAddData(v4p->relativeOpenableAEList, b) ; }
+            else
+               { ListAddData(v4p->absoluteOpenableAEList, b) ; }
+#else
             // ActiveEdge dans list y
-            ListAddData(v4p->activeEdgeYSortedList, b) ;
-
-         } // actif
+            ListAddData(v4p->openableAEList, b) ;
+#endif
+         } // active
          if (loop) {
             s1 = NULL ;
             end = true ;
          } else if (sb->x == s1->x && sb->y == s1->y) {
-            // neweau lacot
+            // new lacot
             s1 = sb->next ;
             end = true ;
          } else {
@@ -656,9 +780,14 @@ PolygonP v4pPolygonBuildActiveEdgeList(PolygonP p) {
          }
       } //  points
    } // lacots
+#ifdef NEW_DEAL
+   p->props &= ~V4P_CHANGED ; // remove the flag
+#endif
    return p ;
 }
 
+#ifdef NEW_DEAL_2
+#else
 // compare minyv between 2 polygons
 int comparePolygonMinyv(void *data1, void *data2) {
   PolygonP p1 = data1, p2 = data2 ;
@@ -682,12 +811,16 @@ List v4pSortOpenedPolygons(List list) {
    ListSetDataPrior(comparePolygonMaxyv) ;
    return ListSort(list) ;
 }
+#endif
 
+
+#ifdef NEW_DEAL_2
+#else
 // build a polygon list by following next & sub links
 void v4pBuildOpenablePolygonsList(PolygonP l) {
    PolygonP p ;
    for (p = l ; p ; p = p->next) {
-      if (p->props & disabled) continue ;
+      if (p->props & (V4P_DISABLED | V4P_IN_DISABLED)) continue ;
 
       if (!v4pIsVisible(p)) continue ;
 
@@ -696,6 +829,8 @@ void v4pBuildOpenablePolygonsList(PolygonP l) {
       ListAddData(v4p->openablePolygonsList, p) ;
    }
 }
+#endif
+
 
 // called by v4pSortActiveEdge()
 int compareActiveEdgeX(void *data1, void *data2) {
@@ -714,60 +849,179 @@ Boolean v4pDrawSlice(int y, int x0, int x1, PolygonP p) {
    return v4pSliceCallBack(y, x0, x1, p ? p->color : bgColor) ;
 }
 
-// transform relative coordinates into absolute (scene related) ones
-void v4pViewToAbsolute(Coord x, Coord y, Coord *xa, Coord *ya) {
-   *xa = v4p->xvu0 + x * v4p->divxvub + x * v4p->modxvub / lineWidth ;
-   *ya = v4p->yvu0 + y * v4p->divyvub + y * v4p->modyvub / lineNb ;
-}
+#ifdef NEW_DEAL_2
+// build AE lists
+void v4pBuildOpenableAELists(PolygonP l) {
+   PolygonP p ;
+   for (p = l ; p ; p = p->next) {
+      //if (p->props & (V4P_DISABLED | V4P_IN_DISABLED | invisible) continue ;
 
+      //if (!v4pIsVisible(p)) continue ;
+
+      v4pPolygonBuildActiveEdgeList(p) ;
+
+      if (p->sub1) v4pBuildOpenableAELists(p->sub1) ;
+   }
+}
+#else
 // open all polygons newly intersected by scan-line
 List v4pOpenPolygons(int y) {
    PolygonP p ;
    List l ;
-   Boolean new = false ;
+   Boolean new_relative = false, new_absolute = false ;
 
    for (l = v4p->openablePolygonsList ; l && (p = (PolygonP)ListData(l))->miny <= y ; l = ListFree(l)) {
       if (p->maxyv < y) continue ;
 
       v4pPolygonBuildActiveEdgeList(p) ;
-      new = true ;
+      if (p->props & relative)
+        new_relative = true ;
+      else
+        new_absolute = true ;
 
       ListAddData(v4p->openedPolygonsList, p) ;
    }
    v4p->openablePolygonsList = l ;
 
-   if (new) {
-     v4p->activeEdgeYSortedList = v4pSortListActiveEdgey(v4p->activeEdgeYSortedList) ;
+   if (new_relative || new_absolute) {
+#ifdef NEW_DEAL
+     if (new_relative)
+        v4p->relativeOpenableAEList = v4pSortListActiveEdgey(v4p->relativeOpenableAEList) ;
+     if (new_absolute)
+        v4p->absoluteOpenableAEList = v4pSortListActiveEdgey(v4p->absoluteOpenableAEList) ;
+#else
+     v4p->openableAEList = v4pSortListActiveEdgey(v4p->openableAEList) ;
+#endif
      v4p->openedPolygonsList = v4pSortOpenedPolygons(v4p->openedPolygonsList) ;
    }
 
 
    return v4p->openedPolygonsList ;
 }
+#endif
 
 // open all new scan-line intersected ActiveEdge
+#ifdef NEW_DEAL
+Boolean v4pOpenActiveEdge(Coord yl, Coord yu) {
+#else
 Boolean v4pOpenActiveEdge(Coord y) {
+#endif
    Boolean open = false ;
-   List l ;
+   List p, l ;
    ActiveEdgeP b ;
-   for ( l = v4p->activeEdgeYSortedList ; l && (b = (ActiveEdgeP)ListData(l))->y0 <= y ; l = ListFree(l)) {
-      if (b->y1 <= y) continue ;
-      b->s = b->r2 - 1 ;
-      b->x = b->x0 ;
-      ListAddData(v4p->activeEdgeXSortedList, b) ;
+#ifdef NEW_DEAL
+   Coord xr0, yr0, xr1, yr1, dx, dy, q, r ;
+
+#ifdef NEW_DEAL_2
+   for ( p = NULL, l = v4p->currentAbsoluteOpenableAE ; l ; l = (p ? ListNext(p) : v4p->absoluteOpenableAEList)) {
+      b = (ActiveEdgeP)ListData(l) ;
+      if (!b->p) {
+         if (p)
+           ListSetNext(p, ListNext(l)) ;
+         else
+            v4p->absoluteOpenableAEList = ListNext(l) ;
+         QuickHeapFree(v4p->activeEdgeHeap, b) ;
+         ListFree(l) ;
+         continue ;
+      } else
+         p = l ;
+      if (b->y0 > yu) break ;
+#else
+   for ( l = v4p->absoluteOpenableAEList ; l && (b = (ActiveEdgeP)ListData(l))->y0 <= yu ; l = ListFree(l)) {
+#endif
+      if (b->y1 <= yu) continue ;
+      v4pAbsoluteToView(b->x0, b->y0, &xr0, &yr0) ;
+      v4pAbsoluteToView(b->x1, b->y1, &xr1, &yr1) ;
+      dx = xr1 - xr0;
+      dy = yr1 - yr0;
+      q = dx / dy ;
+      r = dx > 0 ? dx % dy : (-dx) % dy ;
+      b->o1 = q ;
+      b->o2 = b->o1 + (dx > 0 ? 1 : -1) ;
+      b->r1 = r ;
+      b->r2 = r - dy ;
+      b->s = -dy + r ;
+      if (yr0 < yl) { // top crop needed
+        int dy2 = yl - yr0 ;
+        xr0 += dy2 * q + dy2 * (dx > 0 ? r : -r) / dy ;
+        b->s += (dy2 * r) % dy ;
+      }
+      b->h = yr1 - yl - 1 ;
+      b->x = xr0 ;
+      ListAddData(v4p->openedAEList, b) ;
       open = true ;
    }
-   v4p->activeEdgeYSortedList = l ;
+#ifdef NEW_DEAL_2
+   v4p->currentAbsoluteOpenableAE = l ;
+#else
+   v4p->absoluteOpenableAEList = l ;
+#endif
+
+#ifdef NEW_DEAL_2
+   for ( p = NULL, l = v4p->currentRelativeOpenableAE ; l  ; l = (p ? ListNext(p) : v4p->relativeOpenableAEList)) {
+      b = (ActiveEdgeP)ListData(l) ;
+      if (!b->p) {
+         if (p)
+           ListSetNext(p, ListNext(l)) ;
+         else
+            v4p->relativeOpenableAEList = ListNext(l) ;
+         QuickHeapFree(v4p->activeEdgeHeap, b) ;
+         ListFree(l) ;
+         continue ;
+      } else
+         p = l ;
+      if (b->y0 > yl) break ;
+#else
+   for ( l = v4p->relativeOpenableAEList ; l && (b = (ActiveEdgeP)ListData(l))->y0 <= yl ; l = ListFree(l)) {
+#endif
+      if (b->y1 <= yl) continue ;
+      b->s = b->r2 - b->r1 ;
+      b->x = b->x0 ;
+      b->h = b->y1 - yl ;
+      if (b->y0 < yl) { // top crop needed
+        int dy2 = yl -  b->y0 ;
+        b->x += dy2 * b->o1 + dy2 * (b->o2 >= 0 ? b->r1 : -b->r1) / dy ;
+        b->s += (dy2 * b->r1) % dy ;
+      }
+      ListAddData(v4p->openedAEList, b) ;
+      open = true ;
+   }
+#ifdef NEW_DEAL_2
+   v4p->currentRelativeOpenableAE = l ;
+#else
+   v4p->relativeOpenableAEList = l ;
+#endif
+#else
+   for ( l = v4p->openableAEList ; l && (b = (ActiveEdgeP)ListData(l))->y0 <= y ; l = ListFree(l)) {
+      int dy ;
+      if (b->y1 <= y) continue ;
+      dy = b->y1 - b->y0 ;
+      b->s = -dy ;
+      b->x = b->x0 ;
+      b->h = b->y1 - y ;
+      if (b->y0 < y) { // top crop needed
+        int dy2 = y - b->y0 ;
+        b->x += dy2 * b->o1 + dy2 * (b->o2 > 0 ? b->r1 : -b->r1) / dy ;
+        b->s += (dy2 * b->r1) % dy ;
+      }
+      ListAddData(v4p->openedAEList, b) ;
+      open = true ;
+   }
+   v4p->openableAEList = l ;
+#endif
    return open ;
 }
 void dprintf(Coord x, Coord y, Char *formatString, ...) ;
 
-// affiche une scene avec une vue
-Boolean v4pAffiche() {
+// Render a scene
+Boolean v4pRender() {
    List l, pl ;
    PolygonP p, polyVisible ;
    ActiveEdgeP b, pb ;
    Coord y, px ;
+#ifdef NEW_DEAL
+   Coord yu, ou1, ou2, su, ru1, ru2 ;
+#endif
    ILayer z ;
    PolygonP layers[16] ;
    int zMax ;
@@ -776,66 +1030,120 @@ Boolean v4pAffiche() {
    ICollide i, colli1, colli2 ;
    int nColli ;
    PolygonP pColli[16] ;
+   Boolean sortNeeded ;
 
    v4pDisplayCallBack() ;
 
    // clean ActiveEdges
-   v4p->activeEdgeYSortedList = NULL ; // sort ActiveEdge verticaly
+#ifdef NEW_DEAL
+#ifdef NEW_DEAL_2
+#else
+   v4p->absoluteOpenableAEList = NULL ; // vertical sort
+   v4p->relativeOpenableAEList = NULL ; // vertical sort
+#endif
+#else
+   v4p->openableAEList = NULL ; // sort ActiveEdge verticaly
+#endif
 
+#ifndef NEW_DEAL_2
    //openablePolygonsList gives the next polygon to open
    //openedPolygonsList gives the next opened polygon to close
    v4p->openablePolygonsList = NULL ;
    v4p->openedPolygonsList= NULL ;
+#endif
+
    if (!v4p->scene) return failure;
+#ifdef NEW_DEAL_2
+   v4pBuildOpenableAELists(*(v4p->scene)) ;
+   if (v4p->changes & V4P_CHANGED_ABSOLUTE) v4p->absoluteOpenableAEList = v4pSortListActiveEdgey(v4p->absoluteOpenableAEList) ;
+   if (v4p->changes & V4P_CHANGED_RELATIVE) v4p->relativeOpenableAEList = v4pSortListActiveEdgey(v4p->relativeOpenableAEList) ;
+#else
    v4pBuildOpenablePolygonsList(*(v4p->scene)) ;
    v4p->openablePolygonsList = v4pSortPolygon(v4p->openablePolygonsList) ;
-   v4pOpenPolygons(0) ;
+#endif
 
    // list of opened ActiveEdges
-   v4p->activeEdgeXSortedList = NULL ;
-   v4pOpenActiveEdge(0) ;
-   v4p->activeEdgeXSortedList = v4pSortActiveEdge(v4p->activeEdgeXSortedList) ;
-   // scanline loop
+   v4p->openedAEList = NULL ;
+#ifdef NEW_DEAL
+   yu = v4p->yvu0 ;
+   ou1 = v4p->divyvub ;
+   ou2 = v4p->divyvub + 1 ;
+   su = -v4p->dyvu ;
+   ru1 = v4p->modyvub ;
+   ru2 = v4p->modyvub - v4p->dyvu ;
+#ifdef NEW_DEAL_2
+   v4p->currentAbsoluteOpenableAE = v4p->absoluteOpenableAEList ;
+   v4p->currentRelativeOpenableAE = v4p->relativeOpenableAEList ;
+#endif
+#endif
+
+   // scan-line loop
    for (y = 0 ; y < lineNb ; y++) {
+#ifdef NEW_DEAL
+      if (su >= 0) {
+         su+= ru2 ;
+         yu+= ou2 ;
+      } else {
+         su+= ru1 ;
+         yu+= ou1 ;
+      }
+#endif
+      sortNeeded = false ;
 
       // opened ActiveEdge loop
-      l = v4p->activeEdgeXSortedList ;
+      l = v4p->openedAEList ;
       pl = NULL ;
+      px = -(0xFFFE) ; // not sure its really the min, but we dont care
       while (l) {
-         b = (ActiveEdgeP)ListData(l) ;
-         if (y >= b->y1) { // close ActiveEdge
+         if (!--((b = (ActiveEdgeP)ListData(l))->h)) { // close ActiveEdge
             if (pl)
                ListSetNext(pl, l = ListFree(l)) ;
             else
-               v4p->activeEdgeXSortedList = l = ListFree(l) ;
+               v4p->openedAEList = l = ListFree(l) ;
          } else { // shift ActiveEdge
-
+            int x ;
             if (b->s > 0) {
-               b->x+= b->o2 ;
+               x = b->x+= b->o2 ;
                b->s+= b->r2 ;
             } else {
-               b->x+= b->o1 ;
+               x = b->x+= b->o1 ;
                b->s+= b->r1 ;
             }
+            if (x < px) sortNeeded = true ;
+            px = x ;
             pl = l ;
             l = ListNext(l) ;
          }
       } // opened ActiveEdge loop
 
+#ifndef NEW_DEAL_2
       //  polygon closing loop
+#ifdef NEW_DEAL
+      for (l = v4p->openedPolygonsList ;
+           l && y > (p = (PolygonP)ListData(l))->maxyv ; l = ListFree(l)) ;
+#else
       for (l = v4p->openedPolygonsList ;
            l && y > (p = (PolygonP)ListData(l))->maxyv ;
            v4pPolygonDelActiveEdges(p), l = ListFree(l)) ;
+#endif
       v4p->openedPolygonsList = l ;
+#endif
 
+#ifndef NEW_DEAL_2
       // open newly intersected polygons
       v4pOpenPolygons(y) ;
+#endif
 
       // open newly intersected ActiveEdge
-      v4pOpenActiveEdge(y) ;
+#ifdef NEW_DEAL
+      sortNeeded |= v4pOpenActiveEdge(y, yu) ;
+#else
+      sortNeeded |= v4pOpenActiveEdge(y) ;
+#endif
 
       // sort ActiveEdge
-      v4p->activeEdgeXSortedList = v4pSortActiveEdge(v4p->activeEdgeXSortedList) ;
+      if (sortNeeded)
+         v4p->openedAEList = v4pSortActiveEdge(v4p->openedAEList) ;
 
       // reset layers
       bz = 0 ;
@@ -849,10 +1157,10 @@ Boolean v4pAffiche() {
       // loop among scanline slices
       px = 0 ;
       b = NULL ;
-      for (l = v4p->activeEdgeXSortedList ; l ; l = ListNext(l)) { // loop ActiveEdge ouvert / x
-          pb = b ;
+      for (l = v4p->openedAEList ; l ; l = ListNext(l)) { // loop ActiveEdge ouvert / x
+         // pb = b ;
           b = (ActiveEdgeP)ListData(l) ;
-          if (b->x > 1000) dprintf(0,0, "problem %d %d %d", (int)b->x, (int)px, (pb ? pb->x : -1));
+          //if (b->x > 1000) dprintf(0,0, "problem %d %d %d", (int)b->x, (int)px, (pb ? pb->x : -1));
           if (b->x > 0) {
               //if (px > b->x) v4pErrorCallBack("pb slice %d %d %d", (int)y, (int)px, (int)b->x);
               if (y >= 0 && y < lineNb && px < lineWidth)
@@ -909,24 +1217,48 @@ Boolean v4pAffiche() {
 
    } // y loop ;
 
+#ifndef NEW_DEAL_2
    // clean lists
    l = v4p->openablePolygonsList ;
    while (l) l = ListFree(l) ;
-   l = v4p->activeEdgeXSortedList ;
-   while (l) l = ListFree(l) ;
+   v4p->openablePolygonsList = NULL ;
+#endif
 
+   l = v4p->openedAEList ;
+   while (l) l = ListFree(l) ;
+   v4p->openedAEList = NULL ;
+
+#ifndef NEW_DEAL_2
    // close still opened polygons
    l = v4p->openedPolygonsList ;
    while (l) {
+#ifndef NEW_DEAL
       v4pPolygonDelActiveEdges((PolygonP)ListData(l)) ;
+#endif
       l = ListFree(l) ;
    }
+   l = v4p->openedPolygonsList = NULL ;
+#endif
 
-   l = v4p->activeEdgeYSortedList ;
+#ifdef NEW_DEAL
+#ifndef NEW_DEAL_2
+   l = v4p->absoluteOpenableAEList ;
    while (l) l = ListFree(l) ;
+   v4p->absoluteOpenableAEList = NULL ;
+
+   l = v4p->relativeOpenableAEList ;
+   while (l) l = ListFree(l) ;
+   v4p->relativeOpenableAEList = NULL ;
+#endif
+#else
+   l = v4p->openableAEList ;
+   while (l) l = ListFree(l) ;
+   v4p->openableAEList = NULL ;
 
    QuickHeapReset(v4p->activeEdgeHeap) ;
+#endif
 
+   v4p->changes = 0 ;
    v4pDisplayEndCallBack() ;
    return success ;
 }
@@ -938,14 +1270,6 @@ PolygonP v4pPolygonRect(PolygonP p, Coord x0, Coord y0, Coord x1, Coord y1) {
    v4pPolygonAddPoint(p, x1, y1) ;
    v4pPolygonAddPoint(p, x1, y0) ;
    return p ;
-}
-
-PolygonProps v4pPolygonEnable(PolygonP p) {
-   return v4pPolygonRemoveProp(p, disabled) ;
-}
-
-PolygonProps v4pPolygonDisable(PolygonP p) {
-   return v4pPolygonPutProp(p, disabled) ;
 }
 
 // Set a list of polygons as a scene

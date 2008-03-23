@@ -10,7 +10,7 @@ static void applicativeLoop(UInt16 almProcCmd, SysAlarmTriggeredParamType *param
   while(!System.StopEvent())
   { 
     iterateApp() ;
-    TApplication.NoBlockDelay(1); 
+    TApplication.NoBlockDelay(5); 
   }
 }
 
