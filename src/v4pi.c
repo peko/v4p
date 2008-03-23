@@ -1,4 +1,4 @@
-/* V4P Implementation
+/* V4P Implementation for Palm-OS
 **
 */
 #include "v4pi.h"
@@ -64,9 +64,12 @@ Boolean v4pCollideCallBack(ICollide i1, ICollide i2, Coord py, Coord x1, Coord x
  return success ;
 }
 
+static UInt32 t1 ;
+static UInt32 laps[4] = {0,0,0,0}, tlaps=0 ;
+
 Boolean v4pDisplayCallBack() {
   int i ;
-
+  t1 = TimGetTicks();
   iBuffer = marginY * screenWidth + marginX ;
 
   //Init collides
@@ -81,6 +84,12 @@ Boolean v4pDisplayCallBack() {
 
 Boolean v4pDisplayEndCallBack() {
    int i ;
+   static int j=0;
+   UInt32 t2=TimGetTicks();
+   tlaps-=laps[j % 4];
+   tlaps+=laps[j % 4]=t2-t1;
+   j++;
+   idebug(tlaps);
 
    // Bilan des collides
    for (i = 0 ; i < 16 ; i++) {
@@ -91,16 +100,51 @@ Boolean v4pDisplayEndCallBack() {
    return success ;
 }
 
+static void myMemSet(UInt8 *pdst, UInt32 numBytes, UInt8 value) {
+ UInt32 a4 ;
+ Int32 n ;
+ void *dst;
+  n=numBytes;
+  dst=pdst;
+  if (n>6) {
+    while ((Int32)dst & 3) {
+      *((UInt8 *)dst)++=value;
+      n--;
+    }
+    a4=value;
+    a4=(a4 << 8) | a4;
+    a4=(a4 << 16) | a4;
+    n-=16;
+    while (n>0) {
+      *((UInt32*)dst)++=a4;
+      *((UInt32*)dst)++=a4;
+      *((UInt32*)dst)++=a4;
+      *((UInt32*)dst)++=a4;
+      n-=16;
+    }
+    n+=12;
+    while (n>0) {
+      *((UInt32*)dst)++=a4;
+      n-=4;
+    }
+    n+=4;
+  }
+  while (n>0) {
+    *((UInt8 *)dst)++=value;
+    n--;
+  }
+}
+
 Boolean v4pSliceCallBack(Coord y, Coord x0, Coord x1, Color c) {
  int l ;
  if (x1 <= x0) return success ;
  l = x1 - x0 ;
- WinSetForeColor((IndexedColorType)c);
- WinDrawLine(x0 + 10, y+10, x1+9, y+10);
- //MemSet(&buffer[iBuffer], l, (char)c) ;
- //iBuffer+= l ;
- //if (x1 == lineWidth)
- //   iBuffer+= bytesBetweenLines ;
+ //WinSetForeColor((IndexedColorType)c);
+ //WinDrawLine(x0 + 10, y+10, x1+9, y+10);
+ myMemSet(&buffer[iBuffer], l, (char)c) ;
+ iBuffer+= l ;
+ if (x1 == lineWidth)
+    iBuffer+= bytesBetweenLines ;
 
  return success ;
 }
