@@ -583,9 +583,6 @@ PolygonP v4pListAddClone(PolygonP *list, PolygonP p) {
    return v4pPolygonIntoList(v4pPolygonClone(p), list);
 }
 
-#define v4pMinCoord(A,B) ((A) < (B) ? (A) : (B))
-#define v4pMaxCoord(A,B) ((A) < (B) ? (B) : (A))
-
 // compute the minimal rectangle surrounding a polygon
 PolygonP v4pPolygonComputeLimits(PolygonP p) {
    PointP s = p->point1;
@@ -1018,7 +1015,7 @@ Boolean v4pRender() {
    List l, pl ;
    PolygonP p, polyVisible ;
    ActiveEdgeP b, pb ;
-   Coord y, px ;
+   Coord y, px, px_collide ;
 #ifdef NEW_DEAL
    Coord yu, ou1, ou2, su, ru1, ru2 ;
 #endif
@@ -1155,31 +1152,35 @@ Boolean v4pRender() {
       nColli = 0 ;
 
       // loop among scanline slices
-      px = 0 ;
-      b = NULL ;
+      px = px_collide = 0 ;
       for (l = v4p->openedAEList ; l ; l = ListNext(l)) { // loop ActiveEdge ouvert / x
-         // pb = b ;
+          // pb = b ;
           b = (ActiveEdgeP)ListData(l) ;
+          p = b->p ;
+          z = p->z & 15 ;
+          bz ^= ((UInt16)1 << z) ;
           //if (b->x > 1000) dprintf(0,0, "problem %d %d %d", (int)b->x, (int)px, (pb ? pb->x : -1));
-          if (b->x > 0) {
-              //if (px > b->x) v4pErrorCallBack("pb slice %d %d %d", (int)y, (int)px, (int)b->x);
-              if (y >= 0 && y < lineNb && px < lineWidth)
-                 v4pDrawSlice(y, v4pMaxCoord(px, 0), v4pMinCoord(b->x, lineWidth), polyVisible);
-              if (nColli>1)
-                 v4pCollideCallBack(colli1, colli2, y, px, b->x, pColli[colli1], pColli[colli2]);
+          //if (px > b->x) v4pErrorCallBack("pb slice %d %d %d", (int)y, (int)px, (int)b->x);
+          if ((int)z >= zMax) {
+            if (px < lineWidth && b->x > 0)
+               v4pDrawSlice(y, imax(px, 0), imin(b->x, lineWidth), polyVisible);
+            px = b->x ;
+            if ((int)z > zMax) {
+               polyVisible = layers[z] = p ;
+               zMax = z ;
+            } else { // z == zMax
+               zMax = floorLog2(bz) ;
+               polyVisible = (zMax >= 0 ? layers[zMax] : NULL) ;
+            }
+          } else { // z < zMax
+            layers[z] = p ;
           }
-          px = b->x;
-          p = b->p;
-          i = p->i;
-          z = p->z & 15;
-          mz = (UInt16)1 << z ;
+          if (nColli > 1)
+             v4pCollideCallBack(colli1, colli2, y, px_collide, b->x, pColli[colli1], pColli[colli2]);
+          px_collide = b->x;
+          i = p->i ;
           mi = (i == (ICollide)-1 ? (UInt16)0 : (UInt16)1 << (i & 15)) ;
-          if ((bz ^= mz) & mz) {
-             layers[z] = p ;
-             if ((int)z > zMax) {
-                zMax = z ;
-                polyVisible = p ;
-             }
+          if (layers[z]) {
              if (mi) {
                 pColli[i] = p ;
                 if (!(bi & mi)) {
@@ -1192,11 +1193,6 @@ Boolean v4pRender() {
                 }
              }
           } else {
-             if (z == zMax) {
-                   zMax = floorLog2(bz) ;
-                   //dprintf(0,120-5*zMax,"v%d",(int)(zMax));
-                   polyVisible = (zMax>=0 ? layers[zMax] : NULL) ;
-             }
              if (bi & mi) {
                 bi ^= mi ;
                 nColli-- ;
@@ -1209,11 +1205,12 @@ Boolean v4pRender() {
                       colli2 = floorLog2(bi ^ (1 << colli1)) ;
              }
           }
+
        } // x opened ActiveEdge loop
 
        // last slice
        if (px < lineWidth)
-          v4pDrawSlice(y, imax(0, px), lineWidth, NULL) ;
+          v4pDrawSlice(y, imax(0, px), lineWidth, polyVisible) ;
 
    } // y loop ;
 

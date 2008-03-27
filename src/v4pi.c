@@ -11,8 +11,8 @@ Color
    black=215, red=125, blue=95, yellow=120, dark=217, oliver=58,
    fluo=48;
 Coord
-   screenWidth=160, screenHeight=160, marginX=10, marginY=10,
-   bytesBetweenLines=2*10, lineWidth = 160-2*10, lineNb = 160-2*10;
+   screenWidth=160, screenHeight=160, marginX=8, marginY=8,
+   bytesBetweenLines=2*8, lineWidth = 160-2*8, lineNb = 160-2*8;
 
 Color bgColor = 0 ;
 
