@@ -14,10 +14,10 @@ typedef struct sQuickHeap {
 #define QuickHeapInitializerFor(T) QuickHeapInitializer(sizeof(T))
 
 QuickHeap QuickHeapNew(int sizeOfItem) ;
+void      QuickHeapDelete(QuickHeap q);
 
 #define QuickHeapNewFor(T) QuickHeapNew(sizeof(T))
 
-void *QuickHeapAlloc(QuickHeap q) ;
-void QuickHeapReset(QuickHeap q) ;
-
-void QuickHeapFree(QuickHeap q, void  *p) ;
+void* QuickHeapAlloc(QuickHeap q) ;
+void  QuickHeapFree(QuickHeap q, void  *p) ;
+void  QuickHeapReset(QuickHeap q) ;

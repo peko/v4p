@@ -1,11 +1,9 @@
-#ifndef V4P
-#define V4P
-#include "v4p_ll.h"
-
-
 /*
 ** v4p = Vectors rendition engine for Pocket
 */
+#ifndef V4P
+#define V4P
+#include "v4p_ll.h"
 
 /* Abbrevs
 ** display size = rectangle lineNb*lineWidth
@@ -49,12 +47,13 @@ typedef UInt16 Flags ;
 typedef UInt16 ILayer ; // < 16
 typedef UInt16 ICollide ; // < 8
 
-typedef UInt32 Color ;
+//typedef UInt32 Color ;
 typedef UInt16 PolygonProps ;
-typedef Int16  Coord ;
+//typedef Int16  Coord ;
 typedef struct point_s *PointP ;
 typedef struct poly_s *PolygonP ;
 typedef struct ba_s *ActiveEdgeP ;
+typedef struct v4pContext_s* V4pContextP;
 
 
 typedef struct point_s {
@@ -62,12 +61,29 @@ typedef struct point_s {
  PointP next ;
 } Point ;
 
-// v4p
-int  v4pInit() ;
-int  v4pSetView(Coord x0, Coord y0, Coord x1, Coord y1) ;
-void v4pViewToAbsolute(Coord x, Coord y, Coord *xa, Coord *ya) ;
-void v4pSetScene(PolygonP *scene) ;
+/******************************
+ * Variables
+ ******************************/
+V4pContextP v4pDefaultContext; // default context (set once by v4pinit())
+
+/******************************
+ * Functions
+ ******************************/
+
+// v4p library
+Boolean v4pInit() ;
+void    v4pQuit() ;
+
+// v4p context
+int     v4pSetBgColor(Color bg);
+void    v4pSetScene(PolygonP *scene) ;
+Boolean v4pSetView(Coord x0, Coord y0, Coord x1, Coord y1) ;
 Boolean v4pRender() ;
+
+// v4pContext
+V4pContextP  v4pContextNew();
+void    v4pContextSet(V4pContextP);
+void    v4pContextFree(V4pContextP);
 
 // v4pPolygon
 PolygonP v4pPolygonNew(PolygonProps t, Color col, ILayer pz) ;
@@ -92,9 +108,9 @@ Color   v4pPolygonGetColor(PolygonP p) ;
 #define v4pListNew(LISTE) (LISTE)=NULL
 PolygonP v4pListAddPolygon(PolygonP *list, PolygonProps t, Color col, ILayer z) ;
 PolygonP v4pListAddClone(PolygonP *list, PolygonP p) ;
-Boolean   v4pListDelPolygon(PolygonP *list, PolygonP p) ;
+Boolean  v4pListDelPolygon(PolygonP *list, PolygonP p) ;
 
-// encodage
+// polygon encoding
 char *v4pPolygonEncodePoints(PolygonP p) ;
 PolygonP v4pPolygonDecodePoints(PolygonP p, char *s) ;
 PolygonP v4pQuickPolygon(PolygonProps t, Color col, ILayer pz, char* s) ;
@@ -104,6 +120,7 @@ PolygonP v4pPolygonTransformClone(PolygonP p, PolygonP c, Coord dx, Coord dy, in
 PolygonP v4pPolygonTransform(PolygonP p, Coord dx, Coord dy, int angle, ILayer dz) ;
 
 // helpers
+void v4pViewToAbsolute(Coord x, Coord y, Coord *xa, Coord *ya) ;
 PolygonP v4pPolygonRect(PolygonP p, Coord x0, Coord y0, Coord x1, Coord y1) ;
 PolygonProps v4pPolygonEnable(PolygonP p) ;
 PolygonProps v4pPolygonDisable(PolygonP p) ;
