@@ -37,6 +37,11 @@ void QuickHeapReset(QuickHeap q) {
   q->next = NULL ;
 }
 
+void QuickHeapDelete(QuickHeap q) {
+  QuickHeapReset(q);
+  free(q);
+}
+
 #define QuickHeapNewFor(T) QuickHeapNew(sizeof(T))
 
 void *QuickHeapAlloc(QuickHeap q) {

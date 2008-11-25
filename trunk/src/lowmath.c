@@ -117,7 +117,7 @@ static UInt16 tabAtanFloorLog2[8] = {
    64, 63, 60, 50, 37, 28, 19, 7
 } ;
 
-UInt16 atan(Coord x, Coord y) {
+UInt16 iatan(Coord x, Coord y) {
    UInt16 m, a ;
    Coord t ;
    Boolean op1, op2, op3 ;
@@ -155,8 +155,8 @@ UInt16 atan(Coord x, Coord y) {
    return a ;
 }
 
-UInt16 atan2p(Coord x1, Coord y1, Coord x0, Coord y0) {
-   return atan(x1 - x0, y1 - y0) ;
+UInt16 iatan2p(Coord x1, Coord y1, Coord x0, Coord y0) {
+   return iatan(x1 - x0, y1 - y0) ;
 }
 
 int angleCmp(UInt16 a1, UInt16 a0) {

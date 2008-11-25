@@ -29,7 +29,7 @@
 ** XHeap : reserved memory for X
 ** XP : X pointer
 ** IX : X table indice
-** XCallBack : external function
+** v4pDisplayX : lower layer function call
 ** opened polygon : polygon intersected by the scan-line : min(y(points)) < y < max(y(points))
 ** to be opened polygon : y(scan-line) < min(y(points))
 ** closed polygon : y(scan-line) > max(y(points))
@@ -40,17 +40,7 @@
 #include "lowmath.h"
 #include "quickheap.h"
 #include "sortable.h"
-
-// external data&func
-extern Coord      lineNb, lineWidth ; // display size
-extern Color    bgColor ; // Color - background
-
-extern Boolean v4pDisplayCallBack() ;
-extern Boolean v4pErrorCallBack(char *s,...) ;
-extern Boolean v4pSliceCallBack(Coord y, Coord x0, Coord x1, Color c) ;
-extern Boolean v4pCollideCallBack(ICollide i1, ICollide i2, Coord py, Coord x1, Coord x2, PolygonP p1, PolygonP p2) ;
-extern Boolean v4pDisplayEndCallBack() ;
-
+#include "v4pi.h"
 
 // Polygon type
 typedef struct poly_s {
@@ -76,9 +66,10 @@ typedef struct ba_s {
 // contexte V4P
 typedef struct v4pContext_s {
  PolygonP *scene ; // scene = a polygon set
+ Coord   xvu0,yvu0,xvu1,yvu1 ; // view coordinates
+ Color   bgColor;
  Coord step ; // step
  int debug1 ;
- Coord   xvu0,yvu0,xvu1,yvu1 ; // view coordinates
  QuickHeap pointHeap, polygonHeap, activeEdgeHeap ;
 #ifndef NEW_DEAL_2
  List    openedPolygonsList, openablePolygonsList ; // polygons lists
@@ -97,15 +88,22 @@ typedef struct v4pContext_s {
   divyvu,modyvu,divyvub,modyvub;
  Boolean scaling; // do polygons need to be scaled?
  UInt32 changes;
-} V4pContextS, *V4pContext ;
+} V4pContext ;
+
 #define V4P_CHANGED_ABSOLUTE 1
 #define V4P_CHANGED_RELATIVE 2
 #define V4P_CHANGED_VIEW 4
 
-V4pContext v4p = NULL ; // current (selected) v4p Context
+static V4pContextP v4p = NULL ; // current (selected) v4p Context
+V4pContextP v4pDefaultContext = NULL;
+
+// define the current BG color
+Color v4pSetBGColor(Color bg) {
+  return v4p->bgColor=bg;
+}
 
 // define the current view
-int v4pSetView(Coord x0, Coord y0, Coord x1, Coord y1) {
+Boolean v4pSetView(Coord x0, Coord y0, Coord x1, Coord y1) {
   v4p->xvu0=x0;
   v4p->yvu0=y0;
   v4p->xvu1=x1;
@@ -125,10 +123,9 @@ int v4pSetView(Coord x0, Coord y0, Coord x1, Coord y1) {
   return success;
 }
 
-
-// create and select a v4p context
-V4pContext v4pContextNew() {
-  v4p = (V4pContext)malloc(sizeof(V4pContextS)) ;
+// create a v4p context
+V4pContextP v4pContextNew() {
+  V4pContextP v4p = (V4pContextP)malloc(sizeof(V4pContext)) ;
   v4p->scene = NULL;
   v4p->step = 8;
   v4p->pointHeap = QuickHeapNewFor(Point) ;
@@ -138,19 +135,50 @@ V4pContext v4pContextNew() {
    v4p->absoluteOpenableAEList = NULL ; // vertical sort
    v4p->relativeOpenableAEList = NULL ; // vertical sort
 #endif
-  v4pSetView(0,0, lineWidth, lineNb);
-  v4p->changes = 0 ;
-  return v4p ;
+  v4p->xvu0=0;
+  v4p->yvu0=0;
+  v4p->xvu1=lineWidth;
+  v4p->yvu1=lineNb;
+  v4p->dxvu=lineWidth;
+  v4p->dyvu=lineNb;
+  v4p->divxvu = 1;
+  v4p->modxvu = 0;
+  v4p->divxvub = 1;
+  v4p->modxvub = 0;
+  v4p->divyvu = 1;
+  v4p->modyvu = 0;
+  v4p->divyvub = 1;
+  v4p->modyvub = 0;
+  v4p->scaling = 0;
+  v4p->changes = 0;
+  return v4p;
 }
 
 // select a v4p context
-int v4pContextSet(V4pContext p) {
-  v4p = p ;
+void v4pContextSet(V4pContextP p) {
+  v4p = p;
 }
 
-int v4pInit() {
-  v4pContextNew() ;
+// delete a v4p context
+void v4pContextFree(V4pContextP p) {
+  QuickHeapDelete(v4p->pointHeap) ;
+  QuickHeapDelete(v4p->polygonHeap) ;
+  QuickHeapDelete(v4p->activeEdgeHeap) ;
+  free(p);
+}
+
+Boolean v4pInit() {
+  if (!v4pDefaultContext) {
+     v4pDefaultContext=v4pContextNew();
+  }
+  v4pContextSet(v4pDefaultContext);
   return success ;
+}
+
+void v4pQuit() {
+  if (v4pDefaultContext) v4pContextFree(v4pDefaultContext);
+  if (v4p == v4pDefaultContext) v4p = NULL;
+  v4pDefaultContext = NULL;
 }
 
 // create a polygon
@@ -202,7 +230,7 @@ Boolean v4pPolygonOutOfList(PolygonP p, PolygonP* list) {
       ppl = pl;
       pl = pl->next;
     }
-    if (!pl) return (v4pErrorCallBack("polygon lost"), failure) ;
+    if (!pl) return (v4pDisplayError("polygon lost"), failure) ;
     ppl->next = p->next;
   }
   p->next=NULL;
@@ -466,7 +494,7 @@ char *v4pPolygonEncodePoints(PolygonP p) {
      }
      if (l % 32 >= 28) {
         s = (char *)realloc(s, (64 + l - l % 32) * sizeof(char)) ;
-        if (!s) { v4pErrorCallBack("full Heap") ; return NULL ; }
+        if (!s) { v4pDisplayError("full Heap") ; return NULL ; }
      }
   }
   s[l] = '\0';
@@ -693,8 +721,9 @@ PolygonP v4pPolygonBuildActiveEdgeList(PolygonP p) {
       v4pPolygonDelActiveEdges(p) ;
 #endif
    p->ActiveEdge1 = NULL ;
-
-   if (!v4pIsVisible(p) || (p->props & (V4P_DISABLED | V4P_IN_DISABLED | invisible)))
+   // Mmmm: autrefois, j'ai retiré v4pIsVisible(p) mais pourquoi?
+   // !v4pIsVisible(p) || 
+   if ((p->props & (V4P_DISABLED | V4P_IN_DISABLED | invisible)))
       return p;
 
    s1 = p->point1;
@@ -843,7 +872,7 @@ List v4pSortActiveEdge(List list) {
 
 // draw a scan-line slice depending on its polygon
 Boolean v4pDrawSlice(int y, int x0, int x1, PolygonP p) {
-   return v4pSliceCallBack(y, x0, x1, p ? p->color : bgColor) ;
+  return v4pDisplaySlice(y, x0, x1, p ? p->color : v4p->bgColor) ;
 }
 
 #ifdef NEW_DEAL_2
@@ -1008,7 +1037,6 @@ Boolean v4pOpenActiveEdge(Coord y) {
 #endif
    return open ;
 }
-void dprintf(Coord x, Coord y, Char *formatString, ...) ;
 
 // Render a scene
 Boolean v4pRender() {
@@ -1029,7 +1057,7 @@ Boolean v4pRender() {
    PolygonP pColli[16] ;
    Boolean sortNeeded ;
 
-   v4pDisplayCallBack() ;
+   v4pDisplayStart() ;
 
    // clean ActiveEdges
 #ifdef NEW_DEAL
@@ -1090,7 +1118,7 @@ Boolean v4pRender() {
       // opened ActiveEdge loop
       l = v4p->openedAEList ;
       pl = NULL ;
-      px = -(0xFFFE) ; // not sure its really the min, but we dont care
+      px = -(0x7FFF) ; // not sure its really the min, but we dont care
       while (l) {
          if (!--((b = (ActiveEdgeP)ListData(l))->h)) { // close ActiveEdge
             if (pl)
@@ -1099,13 +1127,17 @@ Boolean v4pRender() {
                v4p->openedAEList = l = ListFree(l) ;
          } else { // shift ActiveEdge
             int x ;
-            if (b->s > 0) {
-               x = b->x+= b->o2 ;
-               b->s+= b->r2 ;
-            } else {
-               x = b->x+= b->o1 ;
-               b->s+= b->r1 ;
-            }
+            if (b->o2) {
+              if (b->s > 0) {
+                x = b->x+= b->o2 ;
+                b->s+= b->r2 ;
+              } else {
+                x = b->x+= b->o1 ;
+                b->s+= b->r1 ;
+              }
+            } else
+              x = b->x ;
+
             if (x < px) sortNeeded = true ;
             px = x ;
             pl = l ;
@@ -1159,8 +1191,8 @@ Boolean v4pRender() {
           p = b->p ;
           z = p->z & 15 ;
           bz ^= ((UInt16)1 << z) ;
-          //if (b->x > 1000) dprintf(0,0, "problem %d %d %d", (int)b->x, (int)px, (pb ? pb->x : -1));
-          //if (px > b->x) v4pErrorCallBack("pb slice %d %d %d", (int)y, (int)px, (int)b->x);
+          //if (b->x > 1000) v4pDisplayDebug("problem %d %d %d", (int)b->x, (int)px, (pb ? pb->x : -1));
+          //if (px > b->x) v4pDisplayError("pb slice %d %d %d", (int)y, (int)px, (int)b->x);
           if ((int)z >= zMax) {
             if (px < lineWidth && b->x > 0)
                v4pDrawSlice(y, imax(px, 0), imin(b->x, lineWidth), polyVisible);
@@ -1176,7 +1208,7 @@ Boolean v4pRender() {
             layers[z] = p ;
           }
           if (nColli > 1)
-             v4pCollideCallBack(colli1, colli2, y, px_collide, b->x, pColli[colli1], pColli[colli2]);
+             v4pDisplayCollide(colli1, colli2, y, px_collide, b->x, pColli[colli1], pColli[colli2]);
           px_collide = b->x;
           i = p->i ;
           mi = (i == (ICollide)-1 ? (UInt16)0 : (UInt16)1 << (i & 15)) ;
@@ -1256,7 +1288,7 @@ Boolean v4pRender() {
 #endif
 
    v4p->changes = 0 ;
-   v4pDisplayEndCallBack() ;
+   v4pDisplayEnd() ;
    return success ;
 }
 

@@ -6,6 +6,16 @@
 #include "lowmath.h"
 #include "v4p.h"
 
+
+// 0..215 combination of
+//    ff  cc  99  66  33  00
+// B : 0   6  12 108 114 120
+// R : 0  18  36  54  72  90
+// G : 0   1   2   3  4    5
+// e.g  12+54+5 = $99 B + $66 R +$0 G
+// 216..224 = gray 22 44 55 77 88 aa bb dd
+// 225..229 = specials: light gray,marron,purple,green,cyan
+// 230..255 = unused (black)
 Color
    gray=225, marron=226, purple=227, green=228, cyan=229,
    black=215, red=125, blue=95, yellow=120, dark=217, oliver=58,
@@ -197,8 +207,7 @@ char *v4pEncodePolygon(PolygonP p) {
   }
 }
 
-Boolean v4pFlavorInit(Color background) {
+Boolean v4pDisplayInit(Color background) {
   bgColor=background;
   buffer = BmpGetBits(WinGetBitmap(WinGetDisplayWindow()));
-  v4pInit();
 }
