@@ -56,7 +56,7 @@ PolygonP buttons[16] ;
 int addButton(Color col) {
   PolygonP button = v4pListAddPolygon(&scene, relative, col, 14);
   buttons[iButton] = button ;
-  v4pPolygonRect(button, lineWidth - 10, yButton, lineWidth - 1, 9 + yButton);
+  v4pPolygonRect(button, v4pDisplayWidth - 10, yButton, v4pDisplayWidth - 1, 9 + yButton);
   yButton+=10;
   return iButton++;
 }
@@ -78,10 +78,10 @@ Boolean gmOnInit() {
   v4pSetBGColor(green);
   scene = NULL;
   v4pSetScene(&scene);
-  xvu = -lineWidth / 2;
-  yvu = -lineNb / 2;
-  lvu = lineWidth ;
-  v4pSetView(xvu, yvu, xvu + lineWidth, yvu + lineNb);
+  xvu = -v4pDisplayWidth / 2;
+  yvu = -v4pDisplayHeight / 2;
+  lvu = v4pDisplayWidth ;
+  v4pSetView(xvu, yvu, xvu + v4pDisplayWidth, yvu + v4pDisplayHeight);
   spotNb=0;
   guiStatus= idle;
   brush = NULL;
@@ -100,7 +100,7 @@ Boolean gmOnInit() {
   currentPolygon = NULL;
   //(-xvu,-yvu)=milieu écran
   pSel = v4pListAddPolygon(&scene, relative, black, 13);
-  v4pPolygonRect(pSel, lineWidth - 11, 0 , lineWidth, 11);
+  v4pPolygonRect(pSel, v4pDisplayWidth - 11, 0 , v4pDisplayWidth, 11);
   
   pCol=v4pListAddPolygon(&scene, relative,black, 14);
   v4pPolygonRect(pCol, -xvu - 20, -yvu - 20, -xvu + 20, -yvu + 20);
@@ -223,12 +223,12 @@ Boolean gmOnIterate() {
             v4pSetView(
               align(xvu + gmMachineState.xpen - x0),
               align(yvu + gmMachineState.ypen - y0),
-              align(xvu + gmMachineState.xpen - x0) + lineWidth,
-              align(yvu + gmMachineState.ypen - y0) + lineNb);
+              align(xvu + gmMachineState.xpen - x0) + v4pDisplayWidth,
+              align(yvu + gmMachineState.ypen - y0) + v4pDisplayHeight);
           }
         }
       } else { //pen down
-        if (gmMachineState.xpen > lineWidth - 10 && gmMachineState.ypen < yButton) { //bar pen down
+        if (gmMachineState.xpen > v4pDisplayWidth - 10 && gmMachineState.ypen < yButton) { //bar pen down
          selPrec = sel;
          ajusteSel(gmMachineState.ypen / 10);
          if (selPrec == bAddition) {
@@ -296,7 +296,7 @@ Boolean gmOnIterate() {
        } else if (sel == bScroll && !focus) {
          xvu = align(xvu + (gmMachineState.xpen - x0));
          yvu = align(yvu + (gmMachineState.ypen - y0));
-         v4pSetView(xvu, yvu, xvu + lineWidth, yvu + lineNb);
+         v4pSetView(xvu, yvu, xvu + v4pDisplayWidth, yvu + v4pDisplayHeight);
        }
        if (brush) {
          v4pListDelPolygon(&scene, brush);

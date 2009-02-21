@@ -49,8 +49,8 @@ int gmMain(int argc, char* argv[])
               break;
 
             case SDL_MOUSEMOTION:
-              gmMachineState.xpen = event.motion.x - marginX;
-              gmMachineState.ypen = event.motion.y - marginY;
+              gmMachineState.xpen = event.motion.x;
+              gmMachineState.ypen = event.motion.y;
               break;
             
             }

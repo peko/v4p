@@ -1,8 +1,10 @@
 /* V4P Implementation for Palm-OS
 **
 */
-#include "v4pi.h"
 #include <stdlib.h>
+#include <stdarg.h>
+
+#include "v4pi.h"
 #include "lowmath.h"
 #include "v4p.h"
 
@@ -18,7 +20,7 @@
 // 230..255 = unused (black)
 Color
    gray=225, marron=226, purple=227, green=228, cyan=229,
-   black=215, red=125, blue=95, yellow=120, dark=217, oliver=58,
+   black=215, red=125, blue=120, yellow=95, dark=217, oliver=58,
    fluo=48;
 Coord
    screenWidth=160, screenHeight=160, marginX=8, marginY=8,
@@ -31,26 +33,24 @@ static char *buffer=NULL ;
 
 static int iBuffer ;
 
-void debug(char *s) {
-  WinDrawChars(s,StrLen(s),0,0);
-}
+typedef struct collide_s {
+   Coord x ;
+   Coord y ;
+   UInt16 q ;
+   PolygonP poly ;
+} Collide ;
 
-void idebug(int i) {
-  Char s[16] ;
-  StrPrintF(s,"%3d",i);
-  WinDrawChars(s,StrLen(s),0,0);
-}
-#include <stdarg.h>
-void dprintf(Coord x, Coord y, Char *formatString, ...)
-{ va_list args ; Char text[0x100] ;
+Collide collides[16] ;
+
+void v4pDisplayDebug(char *formatString, ...) {
+  va_list args ; Char text[0x100] ;
   va_start(args, formatString) ;
   StrVPrintF(text, formatString, args) ;
   va_end(args);
-  WinDrawChars(text, StrLen(text), x, y) ;
+  WinDrawChars(text, StrLen(text), 0, 0);
 }
 
-
-Boolean v4pErrorCallBack(char *formatString, ...) {
+Boolean v4pDisplayError(char *formatString, ...) {
   va_list args ; Char text[0x100] ;
   va_start(args, formatString) ;
   StrVPrintF(text, formatString, args) ;
@@ -58,7 +58,7 @@ Boolean v4pErrorCallBack(char *formatString, ...) {
   WinDrawChars(text, StrLen(text), 0, 0) ;
 }
 
-Boolean v4pCollideCallBack(ICollide i1, ICollide i2, Coord py, Coord x1, Coord x2, PolygonP p1, PolygonP p2) {
+Boolean v4pDisplayCollide(ICollide i1, ICollide i2, Coord py, Coord x1, Coord x2, PolygonP p1, PolygonP p2) {
  int l, dx, dy ;
  l = x2 - x1 ;
  dx = x1 * l + (l + 1) * l / 2 ;
@@ -77,7 +77,7 @@ Boolean v4pCollideCallBack(ICollide i1, ICollide i2, Coord py, Coord x1, Coord x
 static UInt32 t1 ;
 static UInt32 laps[4] = {0,0,0,0}, tlaps=0 ;
 
-Boolean v4pDisplayCallBack() {
+Boolean v4pDisplayStart() {
   int i ;
   t1 = TimGetTicks();
   iBuffer = marginY * screenWidth + marginX ;
@@ -92,7 +92,7 @@ Boolean v4pDisplayCallBack() {
   return success ;
 }
 
-Boolean v4pDisplayEndCallBack() {
+Boolean v4pDisplayEnd() {
    int i ;
    static int j=0;
    UInt32 t2=TimGetTicks();
@@ -145,7 +145,7 @@ static void myMemSet(UInt8 *pdst, UInt32 numBytes, UInt8 value) {
   }
 }
 
-Boolean v4pSliceCallBack(Coord y, Coord x0, Coord x1, Color c) {
+Boolean v4pDisplaySlice(Coord y, Coord x0, Coord x1, Color c) {
  int l ;
  if (x1 <= x0) return success ;
  l = x1 - x0 ;
@@ -207,7 +207,10 @@ char *v4pEncodePolygon(PolygonP p) {
   }
 }
 
-Boolean v4pDisplayInit(Color background) {
+Boolean v4pDisplayInit(int quality, Color background) {
   bgColor=background;
   buffer = BmpGetBits(WinGetBitmap(WinGetDisplayWindow()));
+}
+
+void v4pDisplayQuit() {
 }

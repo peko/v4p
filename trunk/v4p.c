@@ -17,7 +17,7 @@
 #define NEW_DEAL_2
 
 /* Abbrevs
-** display size = rectangle lineNb*lineWidth
+** display size = rectangle v4pDisplayHeight*v4pDisplayWidth
 ** view = rectangular area defining what part of the scene to display
 ** scene = a polygons list
 ** Polygon = closed path of n points, with color and depth
@@ -65,6 +65,7 @@ typedef struct ba_s {
 
 // contexte V4P
 typedef struct v4pContext_s {
+ V4pDisplayP display;
  PolygonP *scene ; // scene = a polygon set
  Coord   xvu0,yvu0,xvu1,yvu1 ; // view coordinates
  Color   bgColor;
@@ -104,6 +105,8 @@ Color v4pSetBGColor(Color bg) {
 
 // define the current view
 Boolean v4pSetView(Coord x0, Coord y0, Coord x1, Coord y1) {
+  int lineWidth = v4pDisplayWidth, lineNb =  v4pDisplayHeight;
+
   v4p->xvu0=x0;
   v4p->yvu0=y0;
   v4p->xvu1=x1;
@@ -123,9 +126,18 @@ Boolean v4pSetView(Coord x0, Coord y0, Coord x1, Coord y1) {
   return success;
 }
 
+void v4pSetDisplay(V4pDisplayP d) {
+  v4p->display = d;
+  // call to refresh internal values depending on current display 
+  v4pSetView(v4p->xvu0, v4p->yvu0, v4p->xvu1, v4p->yvu1);
+}
+
+
 // create a v4p context
 V4pContextP v4pContextNew() {
   V4pContextP v4p = (V4pContextP)malloc(sizeof(V4pContext)) ;
+  int lineWidth = v4pDisplayWidth, lineNb = v4pDisplayHeight;
+  v4p->display = v4pDisplayContext;
   v4p->scene = NULL;
   v4p->step = 8;
   v4p->pointHeap = QuickHeapNewFor(Point) ;
@@ -636,6 +648,7 @@ PolygonP v4pPolygonComputeLimits(PolygonP p) {
 
 // transform relative coordinates into absolute (scene related) ones
 void v4pViewToAbsolute(Coord x, Coord y, Coord *xa, Coord *ya) {
+   int lineWidth = v4pDisplayWidth, lineNb = v4pDisplayHeight;
    *xa = v4p->xvu0 + x * v4p->divxvub + x * v4p->modxvub / lineWidth ;
    *ya = v4p->yvu0 + y * v4p->divyvub + y * v4p->modyvub / lineNb ;
 }
@@ -668,7 +681,7 @@ Boolean v4pIsVisible(PolygonP p) {
    }
    p->minyv = miny ;
    p->maxyv = maxy ;
-   return (maxx >= 0 && maxy >= 0 && minx < lineWidth && miny < lineNb) ;
+   return (maxx >= 0 && maxy >= 0 && minx < v4pDisplayWidth && miny < v4pDisplayHeight) ;
    }
 }
 
@@ -1057,6 +1070,8 @@ Boolean v4pRender() {
    PolygonP pColli[16] ;
    Boolean sortNeeded ;
 
+   v4pDisplaySetContext(v4p->display);
+
    v4pDisplayStart() ;
 
    // clean ActiveEdges
@@ -1103,7 +1118,7 @@ Boolean v4pRender() {
 #endif
 
    // scan-line loop
-   for (y = 0 ; y < lineNb ; y++) {
+   for (y = 0 ; y < v4pDisplayHeight ; y++) {
 #ifdef NEW_DEAL
       if (su >= 0) {
          su+= ru2 ;
@@ -1194,8 +1209,8 @@ Boolean v4pRender() {
           //if (b->x > 1000) v4pDisplayDebug("problem %d %d %d", (int)b->x, (int)px, (pb ? pb->x : -1));
           //if (px > b->x) v4pDisplayError("pb slice %d %d %d", (int)y, (int)px, (int)b->x);
           if ((int)z >= zMax) {
-            if (px < lineWidth && b->x > 0)
-               v4pDrawSlice(y, imax(px, 0), imin(b->x, lineWidth), polyVisible);
+            if (px < v4pDisplayWidth && b->x > 0)
+               v4pDrawSlice(y, imax(px, 0), imin(b->x, v4pDisplayWidth), polyVisible);
             px = b->x ;
             if ((int)z > zMax) {
                polyVisible = layers[z] = p ;
@@ -1241,8 +1256,8 @@ Boolean v4pRender() {
        } // x opened ActiveEdge loop
 
        // last slice
-       if (px < lineWidth)
-          v4pDrawSlice(y, imax(0, px), lineWidth, polyVisible) ;
+       if (px < v4pDisplayWidth)
+          v4pDrawSlice(y, imax(0, px), v4pDisplayWidth, polyVisible) ;
 
    } // y loop ;
 

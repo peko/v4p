@@ -83,21 +83,30 @@ static SDL_Color
 
 const Color
    gray=225, marron=226, purple=227, green=228, cyan=229,
-   black=215, red=125, blue=95, yellow=120, dark=217, oliver=58,
+   black=215, red=125, blue=120, yellow=95, dark=217, oliver=58,
    fluo=48;
 
-//const Coord screenWidth = 320, screenHeight = 200;
-const Coord screenWidth = 320, screenHeight = 200;
-const Coord marginX = 20, marginY = 20;
-const Coord bytesBetweenLines = 2*20/*marginX*/;
+const Coord defaultScreenWidth = 640, defaultScreenHeight = 400;
 
-const Coord
-lineWidth = 320/*screenWidth*/ - 2 * 20/*marginX*/,
-  lineNb = 200/*screenHeight*/ - 2 * 20/*marginY*/;
 
-static SDL_Surface* screenSurface;
+typedef struct v4pDisplay_s {
+  SDL_Surface* screenSurface;
+  unsigned int width;
+  unsigned int height;
+} V4pDisplayS;
+
+//struct v4pDisplay_s* V4pDisplayP;
+
+V4pDisplayS v4pDisplayDefaultContextS;
+V4pDisplayP v4pDisplayDefaultContext = &v4pDisplayDefaultContextS;
+
+V4pDisplayP v4pDisplayContext = &v4pDisplayDefaultContextS;
+Coord       v4pDisplayWidth;
+Coord       v4pDisplayHeight;
+
+static Coord bytesBetweenLines;
 static const SDL_VideoInfo* vi;
-static Uint8* buffer;
+static Uint8* currentBuffer;
 static int iBuffer;
 
 typedef struct collide_s {
@@ -145,7 +154,7 @@ static Uint32 laps[4] = {0,0,0,0}, tlaps=0 ;
 Boolean v4pDisplayStart() {
   int i ;
   t1 = SDL_GetTicks();
-  iBuffer = marginY * screenWidth + marginX ;
+  iBuffer = 0;
 
   //Init collides
   for (i = 0 ; i < 16 ; i++) {
@@ -155,13 +164,14 @@ Boolean v4pDisplayStart() {
     collides[i].poly = NULL ;
   }
 
-  if (SDL_MUSTLOCK(screenSurface) && SDL_LockSurface(screenSurface) < 0)
+  if (SDL_MUSTLOCK(v4pDisplayContext->screenSurface) && SDL_LockSurface(v4pDisplayContext->screenSurface) < 0)
     return failure;
   else
     return success ;
 }
 
 Boolean v4pDisplayEnd() {
+
    int i ;
    static int j=0;
    Uint32 t2=SDL_GetTicks();
@@ -177,9 +187,9 @@ Boolean v4pDisplayEnd() {
       collides[i].y /= collides[i].q ;
    }
 
-   if (SDL_MUSTLOCK(screenSurface))
-     SDL_UnlockSurface(screenSurface);
-   SDL_Flip(screenSurface);
+   if (SDL_MUSTLOCK(v4pDisplayContext->screenSurface))
+     SDL_UnlockSurface(v4pDisplayContext->screenSurface);
+   SDL_Flip(v4pDisplayContext->screenSurface);
 
    return success ;
 }
@@ -190,9 +200,9 @@ Boolean v4pDisplaySlice(Coord y, Coord x0, Coord x1, Color c) {
  l = x1 - x0 ;
  //WinSetForeColor((IndexedColorType)c);
  //WinDrawLine(x0 + 10, y+10, x1+9, y+10);
- SDL_memset(&buffer[iBuffer], (char)c, l) ;
+ SDL_memset(&currentBuffer[iBuffer], (char)c, l) ;
  iBuffer+= l ;
- if (x1 == lineWidth)
+ if (x1 == v4pDisplayWidth)
     iBuffer+= bytesBetweenLines ;
 
  return success ;
@@ -248,6 +258,8 @@ char *v4pEncodePolygon(PolygonP p) {
 
 Boolean v4pDisplayInit(int quality, Boolean fullscreen) {
   /* Initialisation de SDL */
+  int screenWidth = defaultScreenWidth * 2 / (3 - quality);
+  int screenHeight = defaultScreenHeight * 2 / (3 - quality);
 
   if (SDL_Init(SDL_INIT_VIDEO) < 0 ) {
 	fprintf(stderr,"Erreur SDL: %s\n", SDL_GetError());
@@ -257,16 +269,44 @@ Boolean v4pDisplayInit(int quality, Boolean fullscreen) {
   vi = SDL_GetVideoInfo();
 
   /* Initialise un mode vidéo idéal pour cette image */
-  screenSurface = SDL_SetVideoMode(screenWidth, screenHeight, 
+  v4pDisplayDefaultContextS.screenSurface = SDL_SetVideoMode(screenWidth, screenHeight, 
                                    8, (fullscreen ? SDL_FULLSCREEN : 0) | /*SDL_HWSURFACE*/0);
-  if (!screenSurface){
-	fprintf(stderr, "can't allocate screen: %s", SDL_GetError());
-	exit(1);
-  }
 
-  buffer=screenSurface->pixels;
 
-  SDL_SetColors(screenSurface, palette, 0, 256);
+  SDL_SetColors(v4pDisplayDefaultContextS.screenSurface, palette, 0, 256);
+
+  v4pDisplayDefaultContextS.width = screenWidth;
+  v4pDisplayDefaultContextS.height = screenHeight;
+  v4pDisplaySetContext(v4pDisplayDefaultContext);
+}
+
+V4pDisplayP v4pDisplayNewContext(int width, int height) {
+  V4pDisplayP c = (V4pDisplayP)malloc(sizeof(V4pDisplayS)); 
+  if (!c) return 0 ;
+
+  c->width = width;
+  c->height = height;
+  c->screenSurface = SDL_CreateRGBSurface(SDL_SWSURFACE,width,height,8,0,0,0,0);
+  return c;
+}
+
+void v4pDisplayFreeContext(V4pDisplayP c) {
+  if (!c || c == v4pDisplayDefaultContext)
+    return;
+
+  SDL_FreeSurface(c->screenSurface);
+  free(c);
+  if (v4pDisplayContext == c)
+    v4pDisplayContext = v4pDisplayDefaultContext;
+}
+
+V4pDisplayP v4pDisplaySetContext(V4pDisplayP c) {
+  v4pDisplayContext = c;
+  v4pDisplayWidth = c->width;
+  v4pDisplayHeight = c->height;
+  currentBuffer = c->screenSurface->pixels;
+  bytesBetweenLines = 0;
+  return c;
 }
 
 void v4pDisplayQuit() {
