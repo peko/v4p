@@ -17,6 +17,8 @@ Boolean gmOnIterate() {
 }
 
 int main(int argc, char** argv) {
+    v4pDisplayInit(1, 1);
+
      return gmMain(argc, argv);
 }
 
