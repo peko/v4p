@@ -12,7 +12,9 @@ typedef struct gmState_s {
 } GmState;
 
 extern GmState gmMachineState;
+
 extern Boolean gmOnInit() ;
 extern Boolean gmOnIterate() ;
-extern int gmMain(int argc, char* argv[]);
+
+int gmMain(int argc, char* argv[]);
 #endif

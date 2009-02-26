@@ -208,54 +208,6 @@ Boolean v4pDisplaySlice(Coord y, Coord x0, Coord x1, Color c) {
  return success ;
 }
 
-extern int v4pXToD(char c) ;
-PolygonP v4pDecodePolygon(char *s) {
-   ILayer z ;
-   PolygonProps t ;
-   Color col ;
-   PolygonP p ;
-   int i = 0 ;
-   if (strlen(s) < 6) return NULL ;
-   t = v4pXToD(s[i]) << 4 + v4pXToD(s[i + 1]) ;
-   i = 2 ;
-   col = v4pXToD(s[i]) << 4 + v4pXToD(s[i + 1]) ;
-   i = 4 ;
-   z = v4pXToD(s[i]) << 4 + v4pXToD(s[i + 1]) ;
-   p = v4pPolygonNew(t, col, z) ;
-   return v4pPolygonDecodePoints(p, s + 6) ;
-}
-
-char *v4pEncodePolygon(PolygonP p) {
-  const char *t = "0123456789ABCDEF" ;
-  Uint16 i, v ;
-  char *s, *ss, *sss ;
-
-  s = (char *)malloc(7) ;
-  ss = s ;
-  for (i = 0 ; i <= 2 ; i++) {
-   if (i == 0) v = v4pPolygonPutProp(p,0) ;
-   else if (i == 1) v = v4pPolygonGetColor(p) ;
-   else if (i == 2) v = v4pPolygonGetZ(p) ;
-   *ss = t[v & 15] ;
-   ss++ ;
-   v = v >> 4 ;
-   *ss = t[v & 15] ;
-   ss++ ;
-  }
-  *ss = '\0' ;
-
-  sss = v4pPolygonEncodePoints(p);
-  if (!sss) {
-     free(s) ;
-     return NULL ;
-  } else {
-     s = (char *)realloc(s, 7 + strlen(sss)) ;
-     strcpy(ss, sss) ;
-     free(sss) ;
-     return s ;
-  }
-}
-
 Boolean v4pDisplayInit(int quality, Boolean fullscreen) {
   /* Initialisation de SDL */
   int screenWidth = defaultScreenWidth * 2 / (3 - quality);

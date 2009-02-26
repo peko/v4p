@@ -35,9 +35,6 @@ void    v4pDisplayDebug(char *formatString,...);
 Boolean v4pDisplayError(char *s,...);
 Boolean v4pDisplayCollide(ICollide i1, ICollide i2, Coord py, Coord x1, Coord x2, PolygonP p1, PolygonP p2);
 
-PolygonP v4pDecodePolygon(char *s);
-char*    v4pEncodePolygon(PolygonP p);
-
 void    v4pDisplayQuit();
 
 

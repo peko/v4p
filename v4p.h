@@ -1,8 +1,8 @@
 /*
 ** v4p = Vectors rendition engine for Pocket
 */
-#ifndef V4P
-#define V4P
+#ifndef V4P_H
+#define V4P_H
 #include "v4p_ll.h"
 
 /* Abbrevs
@@ -109,11 +109,6 @@ Color   v4pPolygonGetColor(PolygonP p) ;
 PolygonP v4pListAddPolygon(PolygonP *list, PolygonProps t, Color col, ILayer z) ;
 PolygonP v4pListAddClone(PolygonP *list, PolygonP p) ;
 Boolean  v4pListDelPolygon(PolygonP *list, PolygonP p) ;
-
-// polygon encoding
-char *v4pPolygonEncodePoints(PolygonP p) ;
-PolygonP v4pPolygonDecodePoints(PolygonP p, char *s) ;
-PolygonP v4pQuickPolygon(PolygonProps t, Color col, ILayer pz, char* s) ;
 
 // transformation
 PolygonP v4pPolygonTransformClone(PolygonP p, PolygonP c, Coord dx, Coord dy, int angle, ILayer dz) ;
