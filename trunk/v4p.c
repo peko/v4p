@@ -69,7 +69,6 @@ typedef struct v4pContext_s {
  PolygonP *scene ; // scene = a polygon set
  Coord   xvu0,yvu0,xvu1,yvu1 ; // view coordinates
  Color   bgColor;
- Coord step ; // step
  int debug1 ;
  QuickHeap pointHeap, polygonHeap, activeEdgeHeap ;
 #ifndef NEW_DEAL_2
@@ -139,7 +138,6 @@ V4pContextP v4pContextNew() {
   int lineWidth = v4pDisplayWidth, lineNb = v4pDisplayHeight;
   v4p->display = v4pDisplayContext;
   v4p->scene = NULL;
-  v4p->step = 8;
   v4p->pointHeap = QuickHeapNewFor(Point) ;
   v4p->polygonHeap = QuickHeapNewFor(Polygon) ;
   v4p->activeEdgeHeap = QuickHeapNewFor(ActiveEdge) ;
@@ -428,90 +426,6 @@ int v4pXToD(char c) {
          return (r >= 0 && r <= 5
                  ? 10 + r : 0) ;
 } } }
-
-// add points to a polygon with coordinates decoded from a c-string
-PolygonP v4pPolygonDecodePoints(PolygonP p, char *s) {
-   int l, j;
-   Coord xs, ys, xs1, ys1;
-   Boolean sep, psep;
-   char c ;
-
-   psep = false;
-   for (j = 0 ; s[j] ; j++) {
-      c = s[j] ;
-      if (c == ' ')
-         continue ;
-
-      if (c == '.') {
-         sep = true;
-         if (psep)
-            v4pPolygonAddPoint(p, xs1 * v4p->step, ys1 * v4p->step);
-         continue;
-      }
-
-      sep = false;
-
-      xs = v4pXToD(c) << 4 + v4pXToD(s[++j]);
-      j++ ;
-      ys = v4pXToD(c) << 4 + v4pXToD(s[++j]);
-      j++;
-      v4pPolygonAddPoint(p, xs * v4p->step, ys * v4p->step);
-
-      if (sep) {
-         xs1 = xs ;
-         ys1 = ys ;
-         psep = true;
-      }
-  }
-  if (psep)
-     v4pPolygonAddPoint(p, xs1 * v4p->step, ys1 * v4p->step);
-
-  return p;
-}
-
-// create a polygon by adding all points encoded in a c-string
-PolygonP v4pQuickPolygon(PolygonProps t, Color col, ILayer z, char* s) {
-  return v4pPolygonDecodePoints(v4pPolygonNew(t, col, z), s);
-}
-
-// encode every point of a polygon into a single c-string
-char *v4pPolygonEncodePoints(PolygonP p) {
-  static char *t = "0123456789ABCDEF" ;
-  char *s;
-  PointP s1, m, pm;
-  int i, l ;
-  Coord v;
-
-  s = (char *)malloc(32 * sizeof(char)) ;
-  l = 0;
-  s1 = p->point1 ;
-  m = s1;
-  pm = NULL;
-  while (m) {
-     if (pm && m == s1) {
-        s[l++] = '.';
-        pm = NULL;
-        s1 = m->next;
-        m = s1;
-     } else {
-        for (i = 0; i <= 1; i++) {
-           if (!i) v = m->x;
-              else v = m->y;
-           v /= v4p->step;
-           s[l++] = t[v & 15];
-           s[l++] = t[(v >> 4) & 15];
-         }
-         pm = m;
-         m = m->next;
-     }
-     if (l % 32 >= 28) {
-        s = (char *)realloc(s, (64 + l - l % 32) * sizeof(char)) ;
-        if (!s) { v4pDisplayError("full Heap") ; return NULL ; }
-     }
-  }
-  s[l] = '\0';
-  return s;
-}
 
 // set the polygon colliding layer
 PolygonP v4pPolygonConcrete(PolygonP p, ICollide i) {

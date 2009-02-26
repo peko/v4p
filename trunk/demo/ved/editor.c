@@ -74,6 +74,7 @@ int spotNb ;
 GuiStatus guiStatus ;
 
 Boolean gmOnInit() {
+  v4pDisplayInit(quality, fullscreen);
   v4pInit();
   v4pSetBGColor(green);
   scene = NULL;
@@ -362,8 +363,6 @@ int main(int argc, char** argv) {
         fputs("  -f, --fullscreen\t\t\tfullscreen mode\n", stderr);
         return 0;
       }
-
-    v4pDisplayInit(quality, fullscreen);
 
     return gmMain(argc, argv);
 }
