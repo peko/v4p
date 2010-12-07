@@ -637,7 +637,7 @@ PolygonP v4pPolygonBuildActiveEdgeList(PolygonP p) {
       // This polygon has not changed. Let's try to be smart
       if (p->props & relative) { // This polygon is defined in view coordinates. No change.
          return p;
-      } else if (v4p->changes & V4P_CHANGED_VIEW) {
+      } else if (!(v4p->changes & V4P_CHANGED_VIEW)) {
          // Polygon coordinates are absolute but the view window didn't change. No change.  
          return p;
       } else { // The polygon hasn't change but it might have moved in view window.

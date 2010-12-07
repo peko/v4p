@@ -2,7 +2,7 @@
 #include "v4p.h"
 #include "v4pi.h"
 
-#define STRESS_AMOUNT 24
+#define STRESS_AMOUNT 128
 
 PolygonP  scene;
 Boolean gmOnInit() {
