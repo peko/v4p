@@ -1,0 +1,25 @@
+The primary target of v4p is 68k instruction set based devices, and specially Palm OS based PDA. My own device is a quite old Sony Clie PEG N620c.
+
+To write my code on my old Windows laptop, I use PSPad freeware editor : http://www.pspad.com/ ; I've formely choosed this editor because it can natively open Palm OS formated text files (a.k.a "DOC").
+
+I compile "v4p" thanks to "prc-tools": http://prc-tools.sourceforge.net/ ; it's a cross compiling tool chain based on gcc.
+
+"prc-tools" may be installed as a Cygwin package under Windows. Thanks to Cygwin environment ( http://www.cygwin.com/ ), I can cross-compile my code from my bare Windows.
+
+To simplify the install of both Cygwin and prc-tools, I work with Palmphi : http://www.digital-kingdoms.net/palmphi
+
+Currently, I don't really use Palmphi IDE and advanced features. But I love the fact that Palmphi author built a small installer of both cygwin and prc-tools. Moreover, Palmphi knows how to start POSE (emulator) with my freshly compiled binaries.
+
+To test my 68k compiled binaries, I use the Palm OS Emulator (also known as "POSE" or "coPilot" earlier).
+
+Note: I've managed to found the Clie special version of POSE and a CLie Rom file years ago but these resources are not available any more on internet.
+
+To debug my code, I add the well known "-g" options everywhere and launch "gdb <...exePath...>" then "target pilot" command lines. These commands load symbols into gdb and connect gdb to a currently running POSE.
+
+note: libg.a looks broken in palmos m68k gcc distrib. I couldn't link with -g option. So I've replaced libg.a by a logical link of libc.a. I'm not sure it was necessary after all.
+
+The v4p project is provided with makefiles to be used with Palmphi. Put the whole "v4p" directory in /usr/src/ under cygwin root directory.
+
+To compile "v4p" as a static library for Palm OS 68k, open a cygwin shell and type "make" under the v4p directory.
+
+To compile a "v4p" application, open Palmphi, check its settings (like cygwin path), and choose one project out of applicative projects availables in v4p sub-directories. (e.g. TotoE). Then build/run !
