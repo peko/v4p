@@ -25,11 +25,6 @@
 */
 
 
-
-#define MAX_SOMMET 320
-#define MAX_POLY 80
-#define MAX_ActiveEdge 200
-
 typedef UInt16 Flags ;
 #define standard (Flags)0
 #define complement (Flags)1 // substracte/add a region to parent
@@ -60,6 +55,8 @@ typedef struct point_s {
  Coord x, y ;
  PointP next ;
 } Point ;
+
+#define JUMPCOORD ((Coord)~0)
 
 /******************************
  * Variables
@@ -98,6 +95,7 @@ PolygonP v4pPolygonDelPoint(PolygonP p, PointP s) ;
 PolygonProps v4pPolygonPutProp(PolygonP p, PolygonProps i) ;
 PolygonProps v4pPolygonRemoveProp(PolygonP p, PolygonProps i) ;
 PointP   v4pPolygonAddPoint(PolygonP p, Coord x, Coord y) ;
+PointP   v4pPolygonAddJump(PolygonP p) ;
 PointP   v4pPolygonMovePoint(PolygonP p, PointP s, Coord x, Coord y) ;
 Color   v4pPolygonSetColor(PolygonP p, Color c) ;
 PointP   v4pPolygonGetPoints(PolygonP p) ;

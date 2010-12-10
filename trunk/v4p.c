@@ -201,7 +201,7 @@ PolygonP v4pPolygonNew(PolygonProps t, Color col, ILayer z) {
   p->point1 = NULL;
   p->sub1 = NULL;
   p->next = NULL;
-  p->miny = ~0; // miny = too much => boundaries to be computed
+  p->miny = JUMPCOORD; // miny = too much => boundaries to be computed
   p->ActiveEdge1 = NULL ;
   return p;
 }
@@ -328,14 +328,28 @@ PointP v4pPolygonAddPoint(PolygonP p, Coord x, Coord y) {
    s->x = x;
    s->y = y;
    if (!p->point1) {
-      p->minx = p->maxx = x ;
-      p->miny = p->maxy = y ;
+	  if (!(x == JUMPCOORD && y == JUMPCOORD)) {
+        p->minx = p->maxx = x;
+        p->miny = p->maxy = y;
+      }
    } else {
       if (x < p->minx) p->minx = x ;
       else if (x > p->maxx) p->maxx = x ;
       if (y < p->miny) p->miny = y ;
       else if (y > p->maxy) p->maxy = y ;
    }
+   s->next = p->point1;
+   p->point1 = s;
+   v4pPolygonChanged(p) ;
+   return s ;
+}
+
+
+// Add a "jump" point into a polygon
+PointP v4pPolygonAddJump(PolygonP p) {
+   PointP s = QuickHeapAlloc(v4p->pointHeap) ;
+   s->x = JUMPCOORD;
+   s->y = JUMPCOORD;
    s->next = p->point1;
    p->point1 = s;
    v4pPolygonChanged(p) ;
@@ -364,11 +378,11 @@ Color v4pPolygonGetColor(PolygonP p) {
 
 // move a polygon point
 PointP v4pPolygonMovePoint(PolygonP p, PointP s, Coord x, Coord y) {
-   if (p->miny == ~0)
+   if (p->miny == JUMPCOORD || (x == JUMPCOORD && y == JUMPCOORD))
       {}
    else if (s->x == p->minx || s->y == p->miny
       || s->x == p->maxx || s->y == p->maxy) {
-      p->miny = ~0 ; // boundaries to be computed again
+      p->miny = JUMPCOORD ; // boundaries to be computed again
    } else {
       if (x < p->minx) p->minx = x ;
       else if (x > p->maxx) p->maxx = x ;
@@ -398,10 +412,10 @@ PolygonP v4pPolygonDelPoint(PolygonP p, PointP s) {
      pps->next = ps->next;
    }
 
-   if (p->miny != ~0
+   if (p->miny != JUMPCOORD
        && (s->x == p->minx || s->y == p->miny
            || s->x == p->maxx || s->y == p->maxy)) {
-      p->miny = ~0 ; // boundaries to be computed again
+      p->miny = JUMPCOORD ; // boundaries to be computed again
    }
 
    QuickHeapFree(v4p->pointHeap, s) ;
@@ -459,24 +473,31 @@ PolygonP v4pPolygonDelActiveEdges(PolygonP p) {
 PolygonP v4pRecPolygonTransformClone(Boolean estSub, PolygonP p, PolygonP c, Coord dx, Coord dy, ILayer dz) {
    PointP sp, sc;
    Coord x, y, x2, y2;
-   p->z = c->z+dz;
+   c->miny = JUMPCOORD; // invalidate computed boundaries 
+   c->z = c->z+dz;
    sp = p->point1;
    sc = c->point1;
    while (sp) {
       x = sp->x;
       y = sp->y;
-      straighten(x, y, &x2, &y2);
-      x2+= dx;
-      y2+= dy;
-      v4pPolygonMovePoint(c, sc, x2, y2) ;
+      if (!(x == JUMPCOORD && y == JUMPCOORD)) {
+        straighten(x, y, &x2, &y2);
+        x2+= dx;
+        y2+= dy;
+        sc->x = x2;
+        sc->y = y2;
+      } else {
+        sc->x = JUMPCOORD;
+        sc->y = JUMPCOORD;
+      }
       sp = sp->next;
       sc = sc->next;
    }
+   v4pPolygonChanged(c);
    if (estSub && p->next)
       v4pRecPolygonTransformClone(true, p->next, c->next, dx, dy, dz);
    if (p->sub1)
       v4pRecPolygonTransformClone(true, p->sub1, c->sub1, dx, dy, dz);
-   // c changed
    return c ;
 }
 
@@ -525,16 +546,22 @@ PolygonP v4pListAddClone(PolygonP *list, PolygonP p) {
 PolygonP v4pPolygonComputeLimits(PolygonP p) {
    PointP s = p->point1;
    if (!s) { // no point
-      p->miny = ~0;
+      p->miny = JUMPCOORD;
    } else {
-      Coord minx, maxx, miny, maxy;
-      maxx = minx = s->x;
-      maxy = miny = s->y;
-      for (s = s->next; s; s = s->next) {
-         if (s->x < minx) minx = s->x;
-         else if (s->x > maxx) maxx = s->x;
-         if (s->y < miny) miny = s->y;
-         else if (s->y > maxy) maxy = s->y;
+      Coord minx = JUMPCOORD, maxx = JUMPCOORD, miny = JUMPCOORD, maxy = JUMPCOORD;
+      while (s && s->x == JUMPCOORD && s->y == JUMPCOORD)
+        s = s->next;
+	  if (s) {
+	    maxx = minx = s->x;
+        maxy = miny = s->y;
+        for (s = s->next; s; s = s->next) {
+		  if (s->x == JUMPCOORD && s->y == JUMPCOORD) continue;
+		  
+          if (s->x < minx) minx = s->x;
+          else if (s->x > maxx) maxx = s->x;
+          if (s->y < miny) miny = s->y;
+          else if (s->y > maxy) maxy = s->y;
+        }
       }
       p->minx = minx;
       p->miny = miny;
@@ -568,7 +595,7 @@ void v4pAbsoluteToView(Coord x, Coord y, Coord *xa, Coord *ya) {
 Boolean v4pIsVisible(PolygonP p) {
    if (!p->point1)
       return false ;
-   if (p->miny == ~0) // unknown limits
+   if (p->miny == JUMPCOORD) // unknown limits
       v4pPolygonComputeLimits(p) ;
 
    { Coord minx = p->minx, maxx = p->maxx, miny = p->miny, maxy = p->maxy;
@@ -631,13 +658,18 @@ PolygonP v4pPolygonBuildActiveEdgeList(PolygonP p) {
     return p;
 
    s1 = p->point1;
+   
+   while (s1 && s1->x == JUMPCOORD && s1->y == JUMPCOORD) s1 = s1->next;
+   
    while (s1 && s1->next) { // lacots
       sa = s1;
       sb = s1->next;
       loop = false;
       end = false;
       while (!end) { // points
-        if (sa->y != sb->y) { // active
+        if (!(sa->x == JUMPCOORD && sa->y == JUMPCOORD)
+            && !(sb->x == JUMPCOORD && sb->y == JUMPCOORD)
+            && sa->y != sb->y) { // active
           b = v4pActiveEdgeNew(p) ;
 
           if (sa->y < sb->y) {
@@ -679,6 +711,7 @@ PolygonP v4pPolygonBuildActiveEdgeList(PolygonP p) {
          } else if (sb->x == s1->x && sb->y == s1->y) {
             // new lacot
             s1 = sb->next ;
+            while (s1 && s1->x == JUMPCOORD && s1->y == JUMPCOORD) s1 = s1->next;
             end = true ;
          } else {
             sa = sb ;
