@@ -2,10 +2,10 @@
 #include "v4p.h"
 #include "v4pi.h"
 
-#define STRESS_AMOUNT 64
+#define STRESS_AMOUNT 128
 PolygonP  scene;
 Boolean gmOnInit() {
-  int i, j, k, loop;
+  int i = 0, j, k, loop;
   v4pDisplayInit(1, 0);
   v4pInit();
   scene = NULL;
@@ -20,11 +20,12 @@ Boolean gmOnInit() {
     for (k = 0; k < STRESS_AMOUNT; k++) {
       pColMatrix[j][k] = v4pPolygonClone(pCol);
       v4pPolygonIntoList(pColMatrix[j][k], &scene);
+      //v4pPolygonTransformClone(pCol, pColMatrix[j][k], v4pDisplayWidth * (k - STRESS_AMOUNT / 2), v4pDisplayWidth * (j - STRESS_AMOUNT / 2), 10, 0);
     }
   }
 
   for (i = 0 ; i < (1 + STRESS_AMOUNT / 2) * v4pDisplayWidth ; i+= 2 * STRESS_AMOUNT) {
-    v4pSetView(-i, -i, v4pDisplayWidth + i, v4pDisplayHeight + i);
+    v4pSetView(-v4pDisplayWidth * (256 + i) / 256,-v4pDisplayHeight * (256 + i) / 256, v4pDisplayWidth * (256 + i) / 256, v4pDisplayHeight * (256 + i) / 256);
     for (j= 0; j < STRESS_AMOUNT; j++) {
       for (k = 0; k < STRESS_AMOUNT; k++) {
         v4pPolygonTransformClone(pCol, pColMatrix[j][k], v4pDisplayWidth * (k - STRESS_AMOUNT / 2), v4pDisplayWidth * (j - STRESS_AMOUNT / 2), (j * k) + i / 16, 0);
@@ -33,8 +34,8 @@ Boolean gmOnInit() {
     v4pRender();
   }
 
-  for (; i > 100 - v4pDisplayHeight ; i-= 2 * STRESS_AMOUNT) {
-    v4pSetView(-i, -i, v4pDisplayWidth + i, v4pDisplayHeight + i);
+  for (; i > -50 ; i-= 2 * STRESS_AMOUNT) {
+    v4pSetView(-v4pDisplayWidth * (256 + i) / 256,-v4pDisplayHeight * (256 + i) / 256, v4pDisplayWidth * (256 + i) / 256, v4pDisplayHeight * (256 + i) / 256);
     for (j= 0; j < STRESS_AMOUNT; j++) {
       for (k = 0; k < STRESS_AMOUNT; k++) {
         v4pPolygonTransformClone(pCol, pColMatrix[j][k], v4pDisplayWidth * (k - STRESS_AMOUNT / 2), v4pDisplayWidth * (j - STRESS_AMOUNT / 2), (j * k) + i / 16, 0);
@@ -44,16 +45,13 @@ Boolean gmOnInit() {
   }
 
   for (i; i < (1 + STRESS_AMOUNT / 2) * v4pDisplayWidth ; i+= 2 * STRESS_AMOUNT) {
-    v4pSetView(-i, -i, v4pDisplayWidth + i, v4pDisplayHeight + i);
+    v4pSetView(-v4pDisplayWidth * (256 + i) / 256,-v4pDisplayHeight * (256 + i) / 256, v4pDisplayWidth * (256 + i) / 256, v4pDisplayHeight * (256 + i) / 256);
     v4pRender();
   }
-  
-  
-  // pause:
-  { char buf[20]; fgets(buf, 20, stdin); }
 }
+
 Boolean gmOnIterate() {
-  return failure;
+  return 0;
 }
 
 int main(int argc, char** argv) {

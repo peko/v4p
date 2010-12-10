@@ -1,9 +1,10 @@
 TARGETS = linux palmos
+BACKENDS = sdl xlib
 MODES = normal debug
-
 
 MODE ?= normal
 TARGET ?= linux
+BACKEND ?= sdl
 
 CC_DEFAULT=gcc
 AR_DEFAULT=ar
@@ -26,7 +27,7 @@ ARFLAGS_linux_fractal= rvs
 
 CC=$(CC_DEFAULT$(CC_$(TARGET))) $(CC_$(TARGET))
 AR=$(AR_DEFAULT$(AR_$(TARGET))) $(AR_$(TARGET))
-CPPFLAGS=$(CCFLAGS_$(TARGET)) $(CCFLAGS_$(TARGET)_$(MODE)) -I. -I$(TARGET)
+CPPFLAGS=$(CCFLAGS_$(TARGET)) $(CCFLAGS_$(TARGET)_$(MODE)) -I. -I$(TARGET)-$(BACKEND)
 ARFLAGS=$(ARFLAGS_$(TARGET)) $(ARFLAGS_$(TARGET)_$(MODE))
 
 PROJECT=v4p
@@ -54,4 +55,4 @@ libv4pserial.a: v4pserial.o
 libgm.a: gamemachine.o
 	$(AR) $(ARFLAGS) $@ $?
 
-VPATH=.:$(TARGET)
+VPATH=.:$(TARGET)-$(BACKEND)
