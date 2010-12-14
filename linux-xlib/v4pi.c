@@ -4,7 +4,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <SDL/SDL.h>
+#include <sys/times.h>
+
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/Xos.h>
+#include <X11/Xatom.h>
 
 #include "v4pi.h"
 #include "lowmath.h"
@@ -12,7 +17,7 @@
 /* A 256 color system palette inspired from old Palm Computing Devices.
 **
 */
-static SDL_Color
+static struct s_color { uchar r; uchar g; uchar b; uchar t }
   palette[256] =
   {
     {255, 255,255, 0}, {255, 204,255, 0}, {255, 153,255, 0}, {255, 102,255, 0},
@@ -81,6 +86,7 @@ static SDL_Color
     {  0,   0,  0, 0}, {  0,   0,  0, 0}, {  0,   0,  0, 0}, {  0,   0,  0, 0}
   };
 
+static XColor[256] xColorTabs;
 const Color
    gray=225, marron=226, purple=227, green=228, cyan=229,
    black=215, red=125, blue=95, yellow=120, dark=217, oliver=58,
@@ -88,9 +94,13 @@ const Color
 
 const Coord defaultScreenWidth = 640, defaultScreenHeight = 400;
 
+static const int borderWidth=1;
 
 typedef struct v4pDisplay_s {
-  SDL_Surface* screenSurface;
+  Display *d;
+  int      s;
+  Window   w;
+  GC       gc;
   unsigned int width;
   unsigned int height;
 } V4pDisplayS;
@@ -104,57 +114,60 @@ V4pDisplayP v4pDisplayContext = &v4pDisplayDefaultContextS;
 Coord       v4pDisplayWidth;
 Coord       v4pDisplayHeight;
 
-static Coord bytesBetweenLines;
-static const SDL_VideoInfo* vi;
-static Uint8* currentBuffer;
-static int iBuffer;
+Display*         currentDisplay;
+static Window    currentWindow;
+static int       currentScreen;
+static GC        currentGC;
+
+static XGCValues values;
+static struct    tms;
 
 typedef struct collide_s {
-   Coord x ;
-   Coord y ;
-   UInt16 q ;
-   PolygonP poly ;
+    Coord x ;
+    Coord y ;
+    UInt16 q ;
+    PolygonP poly ;
 } Collide ;
 
 Collide collides[16] ;
 
-void v4pDisplayDebug(char *formatString, ...)
-{ va_list args ; char text[0x100] ;
-  va_start(args, formatString) ;
-  //vprintf(formatString, args) ;
-  va_end(args);
+void v4pDisplayDebug(char *formatString, ...) {
+    va_list args ; char text[0x100] ;
+    va_start(args, formatString) ;
+    //vprintf(formatString, args) ;
+    va_end(args);
 }
 
 Boolean v4pDisplayError(char *formatString, ...) {
-  va_list args ;
-  va_start(args, formatString) ;
-  vfprintf(stderr, formatString, args) ;
-  va_end(args);
+    va_list args ;
+    va_start(args, formatString) ;
+    vfprintf(stderr, formatString, args) ;
+    va_end(args);
 }
 
 Boolean v4pDisplayCollide(ICollide i1, ICollide i2, Coord py, Coord x1, Coord x2, PolygonP p1, PolygonP p2) {
- int l, dx, dy ;
- l = x2 - x1 ;
- dx = x1 * l + (l + 1) * l / 2 ;
- dy = l * py ;
- collides[i1].q += l ;
- collides[i1].x += dx ;
- collides[i1].y += dy ;
- collides[i1].poly = p2 ;
- collides[i2].q += l ;
- collides[i2].x += dx ;
- collides[i2].y += dy ;
- collides[i2].poly = p1 ;
- return success ;
+	int l, dx, dy ;
+	l = x2 - x1 ;
+	dx = x1 * l + (l + 1) * l / 2 ;
+	dy = l * py ;
+	collides[i1].q += l ;
+	collides[i1].x += dx ;
+	collides[i1].y += dy ;
+	collides[i1].poly = p2 ;
+	collides[i2].q += l ;
+	collides[i2].x += dx ;
+	collides[i2].y += dy ;
+	collides[i2].poly = p1 ;
+	return success ;
 }
 
-static Uint32 t1 ;
-static Uint32 laps[4] = {0,0,0,0}, tlaps=0 ;
+static clock_t t1 ;
+static clock_t laps[4] = {0,0,0,0}, tlaps=0 ;
 
 Boolean v4pDisplayStart() {
   int i ;
-  t1 = SDL_GetTicks();
-  iBuffer = 0;
+  
+  t1 = times(&tms); 
 
   //Init collides
   for (i = 0 ; i < 16 ; i++) {
@@ -164,81 +177,154 @@ Boolean v4pDisplayStart() {
     collides[i].poly = NULL ;
   }
 
-  if (SDL_MUSTLOCK(v4pDisplayContext->screenSurface) && SDL_LockSurface(v4pDisplayContext->screenSurface) < 0)
-    return failure;
-  else
-    return success ;
+  return success ;
 }
 
 Boolean v4pDisplayEnd() {
 
-   int i ;
-   static int j=0;
-   Uint32 t2=SDL_GetTicks();
-   tlaps-=laps[j % 4];
-   tlaps+=laps[j % 4]=t2-t1;
-   j++;
-   v4pDisplayDebug("%d", tlaps);
+    int i ;
+    static int j=0;
+    clock_t t2 = times(&tms);
+    tlaps -= laps[j % 4];
+    tlaps += laps[j % 4]=t2-t1;
+    j++;
+    v4pDisplayDebug("%d", tlaps);
 
-   // Bilan des collides
-   for (i = 0 ; i < 16 ; i++) {
-      if (!collides[i].q) continue ;
-      collides[i].x /= collides[i].q ;
-      collides[i].y /= collides[i].q ;
-   }
+    // Bilan des collides
+    for (i = 0 ; i < 16 ; i++) {
+       if (!collides[i].q) continue ;
+       collides[i].x /= collides[i].q ;
+       collides[i].y /= collides[i].q ;
+    }
 
-   if (SDL_MUSTLOCK(v4pDisplayContext->screenSurface))
-     SDL_UnlockSurface(v4pDisplayContext->screenSurface);
-   SDL_Flip(v4pDisplayContext->screenSurface);
-
-   return success ;
+    XFlush(currentDisplay);
+      
+    return success ;
 }
 
 Boolean v4pDisplaySlice(Coord y, Coord x0, Coord x1, Color c) {
- int l ;
- if (x1 <= x0) return success ;
- l = x1 - x0 ;
- //WinSetForeColor((IndexedColorType)c);
- //WinDrawLine(x0 + 10, y+10, x1+9, y+10);
- SDL_memset(&currentBuffer[iBuffer], (char)c, l) ;
- iBuffer+= l ;
- if (x1 == v4pDisplayWidth)
-    iBuffer+= bytesBetweenLines ;
-
- return success ;
+    int l = x1 - x0;
+    if (l <= 0) return success ;
+    XSetForeground(currentDisplay, currentGC, xColorsTab[c]);
+    XFillRectangle(currentDisplay, currentWindow, currentGC, x0, y, l, 1);
+    return success ;
 }
 
+static void createWindow(V4pDisplay vd, int width, int height) {
+	Display* d = vd->d;
+	int      s = vd->s;
+	Window   w;
+    GC       gc;	
+
+   /* Miscellaneous X variables */
+    XSizeHints *  size_hints;
+    XWMHints   *  wm_hints;
+    XClassHint *  class_hints;
+    XTextProperty windowName, iconName;
+    XEvent        report;
+
+    w = /* create window */
+       XCreateSimpleWindow(d, RootWindow(d, s), 10, 10, width, height, borderWidth,
+       BlackPixel(d, s), WhitePixel(d, s));
+
+
+    /* Allocate memory */
+    if ( !( size_hints  = XAllocSizeHints() ) || 
+	 !( wm_hints    = XAllocWMHints()   ) ||
+	 !( class_hints = XAllocClassHint() )    ) {
+	fprintf(stderr, "%s: couldn't allocate memory.\n", argv[0]);
+	exit(EXIT_FAILURE);
+    }
+
+    /*  Set hints for window manager */
+    if ( XStringListToTextProperty(&argv[0], 1, &windowName) == 0
+        || XStringListToTextProperty(&argv[0], 1, &iconName) == 0 ) {
+	    fprintf(stderr, "%s: xlib structure allocation failed.\n",
+		argv[0]);
+	exit(EXIT_FAILURE);
+    }
+
+    size_hints->flags       = PPosition | PSize | PMinSize;
+    size_hints->min_width   = defaultScreenWidth;
+    size_hints->min_height  = defaultScreenHeight;
+
+    wm_hints->flags         = StateHint | InputHint;
+    wm_hints->initial_state = NormalState;
+    wm_hints->input         = True;
+
+    class_hints->res_name   = argv[0];
+    class_hints->res_class  = "v4px";
+
+    XSetWMProperties(d, w, &windowName, &iconName, argv, argc,
+		     size_hints, wm_hints, class_hints);
+
+    /*  Choose which events we want to handle  */
+    XSelectInput(d, w, ExposureMask | KeyPressMask |
+		 ButtonPressMask | ButtonReleaseMask | ButtonMotionMask
+         | PointerMotionHintMask |
+		 StructureNotifyMask);
+
+    gc = /* create graphic context */
+         XCreateGC(d, w, 0, &values);
+    XSetForeground(d, vd->gc, BlackPixel(d, s));
+
+    vd->width = winWidth;
+    vd->height = winHeight;
+    vd->w  = w;
+    vd->gc = gc;
+    
+      
+    /*  Display Window  */
+    XMapWindow(d, w);
+}
+
+
 Boolean v4pDisplayInit(int quality, Boolean fullscreen) {
-  /* Initialisation de SDL */
-  int screenWidth = defaultScreenWidth * 2 / (3 - quality);
-  int screenHeight = defaultScreenHeight * 2 / (3 - quality);
 
-  if (SDL_Init(SDL_INIT_VIDEO) < 0 ) {
-	fprintf(stderr,"Erreur SDL: %s\n", SDL_GetError());
-	exit(1);
-  }
+   /* connect to X server */
+   Display *d = XOpenDisplay(NULL);
+   if (defaultDisplay == NULL) {
+     fprintf(stderr, "Cannot open display\n");
+     exit(EXIT_FAILURE);
+   }
+   int s     = DefaultScreen(d);
 
-  vi = SDL_GetVideoInfo();
+   // Prepare "tablette"
+   Colormap cmap = DefaultColormap (mydisp, myscreen);
+   int i;
+   for (i= 0; i < 256; i++) {
+	   Xcolor c;
+	   c.red = palette[i].r;
+	   c.green = palette[i].g;
+	   c.blue = palette[i].b;
+	   xColorTabs[i] = XAllocColor(d, cmap, &c); 
+   }
+   
+   v4pDisplayDefaultContextS.d = d;
+   v4pDisplayDefaultContextS.s = s;
 
-  /* Initialise un mode vidéo idéal pour cette image */
-  v4pDisplayDefaultContextS.screenSurface = SDL_SetVideoMode(screenWidth, screenHeight, 
-                                   8, (fullscreen ? SDL_FULLSCREEN : 0) | /*SDL_HWSURFACE*/0);
+   /* Get screen size from display structure macro */
+   defaultScreenWidth = DisplayWidth(d, s);
+   defaultScreenHeight = DisplayHeight(d, s);
+   int winWidth = defaultScreenWidth * 2 / (3 - quality);
+   int winHeight = defaultScreenHeight * 2 / (3 - quality);
+   
+   createWindow(v4pDisplayDefaultContext, widthWidth, winHeight);
 
-
-  SDL_SetColors(v4pDisplayDefaultContextS.screenSurface, palette, 0, 256);
-
-  v4pDisplayDefaultContextS.width = screenWidth;
-  v4pDisplayDefaultContextS.height = screenHeight;
-  v4pDisplaySetContext(v4pDisplayDefaultContext);
+   v4pDisplaySetContext(v4pDisplayDefaultContext);
 }
 
 V4pDisplayP v4pDisplayNewContext(int width, int height) {
   V4pDisplayP c = (V4pDisplayP)malloc(sizeof(V4pDisplayS)); 
   if (!c) return 0 ;
 
+  c->d = v4pDisplayDefaultContextS.d;
+  c->s = v4pDisplayDefaultContextS.s;
+  
   c->width = width;
   c->height = height;
-  c->screenSurface = SDL_CreateRGBSurface(SDL_SWSURFACE,width,height,8,0,0,0,0);
+
+  createWindow(c, width, height); 
   return c;
 }
 
@@ -246,7 +332,7 @@ void v4pDisplayFreeContext(V4pDisplayP c) {
   if (!c || c == v4pDisplayDefaultContext)
     return;
 
-  SDL_FreeSurface(c->screenSurface);
+  XFreeGC(c->d, c->gc);
   free(c);
   if (v4pDisplayContext == c)
     v4pDisplayContext = v4pDisplayDefaultContext;
@@ -256,11 +342,14 @@ V4pDisplayP v4pDisplaySetContext(V4pDisplayP c) {
   v4pDisplayContext = c;
   v4pDisplayWidth = c->width;
   v4pDisplayHeight = c->height;
-  currentBuffer = c->screenSurface->pixels;
-  bytesBetweenLines = 0;
+  currentDisplay = c->d;
+  currentWindow = c->w;
+  currentScreen = c->s;
+  currentGC = c->gc;
   return c;
 }
 
 void v4pDisplayQuit() {
-  SDL_Quit();
+   /* close connection to server */
+   XCloseDisplay(d);
 }
